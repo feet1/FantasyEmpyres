@@ -23,6 +23,9 @@ $RECYCLE.BIN/
 *.suo
 *.opendb
 
+#UE4 specific stuff to ignore
+Intermediate/
+
 # =========================
 # Operating System Files
 # =========================
