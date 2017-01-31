@@ -21,6 +21,7 @@ $RECYCLE.BIN/
 *.sln
 *.sdf
 *.suo
+*.opendb
 
 # =========================
 # Operating System Files
