@@ -25,6 +25,10 @@ $RECYCLE.BIN/
 
 #UE4 specific stuff to ignore
 Intermediate/
+Binaries/
+Build/
+DerivedDataCache/
+Saved/
 
 # =========================
 # Operating System Files
