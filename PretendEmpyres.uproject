@@ -1,0 +1,13 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "{089FB2AD-4D71-E5D0-77F8-73918F29149F}",
+	"Category": "",
+	"Description": "",
+	"Modules": [
+		{
+			"Name": "PretendEmpyres",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
