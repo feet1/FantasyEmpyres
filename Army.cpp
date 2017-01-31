@@ -2,6 +2,7 @@
 
 #include "PretendEmpyres.h"
 #include "Unit.h"
+#include "Army.h"
 
 float Army::DamagePunchThroughThreshhold = 0.5f;
 float Army::MinimumDamagePunchedThrough = 0.2f;
@@ -155,39 +156,13 @@ uint32 Army::RemoveRegulars(uint32 guid, uint32 quantity)
 	uint32 qty = unit->Quantity();
 	if (quantity >= qty||quantity==0)
 	{
-		//remove from UnitsByGuid
-		UnitsByGuid.Remove(guid);
-		//remove from UnitsByUnitType
-		TDoubleLinkedList<Unit*>* list = UnitsByUnitType.Find(unit->GetUnitType());
-		check(list != nullptr);
-		if (list != nullptr)
-		{
-			TDoubleLinkedList<Unit*>::TDoubleLinkedListNode* node = list->FindNode(unit);
-			check(node != nullptr);
-			if (node != nullptr)
-			{
-				list->RemoveNode(node);
-			}
-		}
-		//remove from UnitsByRankByGuid
-		TMap<uint32, Unit*>* map = UnitsByRankByGuid.Find(unit->GetRank());
-		check(map != nullptr);
-		if (map != nullptr)
-		{
-			uint32 count = map->Remove(guid);
-			check(count != 0);
-		}
-
-		//remove from either HerosByGuid or RegularsByGuid
-		TMap<uint32, Unit*> &HerosOrRegularsByGuid = (unit->IsHero()) ? HerosByGuid:RegularsByGuid;
-		HerosOrRegularsByGuid.Remove(guid);
+		DeregisterUnitWithArmy(unit);
 		delete unit;
-		//remove every single place 
 		return qty;
 	}
 	else
 	{
-		int32 amountRemoved = -(unit->ModifyQuantity(-quantity));
+		int32 amountRemoved = -(unit->ModifyQuantity(-(int32)quantity));
 		check(amountRemoved > 0);
 		return (uint32)amountRemoved;
 	}
@@ -216,16 +191,17 @@ void Army::TransferUnit(uint32 _guid, uint32 _quantity, Army* gainingArmy)
 	}
 }
 
-void Unit::TransferHero(Unit* hero, Army* gainingArmy)
+void Army::TransferHero(Unit* hero, Army* gainingArmy)
 {
-	//gainingArmy->
+	DeregisterUnitWithArmy(hero);
+	gainingArmy->RegisterUnitWithArmy(hero);
 }
 
 Unit* Army::AllocateUnit(UnitType _type, uint32 _quantity)
 {
 	//verify it doesn't already exist, allocate unit, add to army containers
 	check(GetUnitPointerByUnitType(_type) == nullptr);
-	Unit* unit = new Unit(this, _type, _quantity);
+	Unit* unit = new Unit(_type, _quantity);
 	RegisterUnitWithArmy(unit);
 	return unit;
 }
@@ -233,7 +209,9 @@ Unit* Army::AllocateUnit(UnitType _type, uint32 _quantity)
 
 Unit* Army::GetUnitPointerByUnitType(UnitType type)
 {
-	TDoubleLinkedList<Unit*>* list = UnitsByUnitType.Find(type);
+	TDoubleLinkedList<Unit*>** listpp = UnitsByUnitType.Find(type);
+	check(listpp != nullptr);
+	TDoubleLinkedList<Unit*>* list = *listpp;
 	TDoubleLinkedList<Unit*>::TDoubleLinkedListNode* node = list->GetHead();
 	while (node != nullptr)
 	{
@@ -250,7 +228,7 @@ Unit* Army::GetUnitPointerByUnitType(UnitType type)
 void Army::RegisterUnitWithArmy(Unit* unit)
 {
 	UnitsByGuid.Add(unit->GetGuid(), unit);
-	UnitsByUnitType.FindChecked(unit->GetUnitType()).AddHead(unit);
+	UnitsByUnitType.FindChecked(unit->GetUnitType())->AddHead(unit);
 	if (unit->IsHero())
 	{
 		HerosByGuid.Add(unit->GetGuid(), unit);
@@ -263,42 +241,32 @@ void Army::RegisterUnitWithArmy(Unit* unit)
 }
 void Army::DeregisterUnitWithArmy(Unit* unit)
 {
-		//remove from UnitsByGuid
-		UnitsByGuid.Remove(unit->GetGuid());
-		//remove from UnitsByUnitType
-		TDoubleLinkedList<Unit*>* list = UnitsByUnitType.Find(unit->GetUnitType());
-		check(list != nullptr);
-		if (list != nullptr)
-		{
-			TDoubleLinkedList<Unit*>::TDoubleLinkedListNode* node = list->FindNode(unit);
-			check(node != nullptr);
-			if (node != nullptr)
-			{
-				list->RemoveNode(node);
-			}
-		}
-		//remove from UnitsByRankByGuid
-		TMap<uint32, Unit*>* map = UnitsByRankByGuid.Find(unit->GetRank());
-		check(map != nullptr);
-		if (map != nullptr)
-		{
-			uint32 count = map->Remove(guid);
-			check(count != 0);
-		}
-
-		//remove from either HerosByGuid or RegularsByGuid
-		TMap<uint32, Unit*> &HerosOrRegularsByGuid = (unit->IsHero()) ? HerosByGuid : RegularsByGuid;
-		HerosOrRegularsByGuid.Remove(guid);
-		delete unit;
-		//remove every single place 
-		return qty;
-	}
-	else
+	//remove from UnitsByGuid
+	UnitsByGuid.Remove(unit->GetGuid());
+	//remove from UnitsByUnitType
+	TDoubleLinkedList<Unit*>** listpp = UnitsByUnitType.Find(unit->GetUnitType());
+	check(listpp != nullptr);
+	TDoubleLinkedList<Unit*>* list = *listpp;
+	check(list != nullptr);
+	if (list != nullptr)
 	{
-		int32 amountRemoved = -(unit->ModifyQuantity(-quantity));
-		check(amountRemoved > 0);
-		return (uint32)amountRemoved;
+		TDoubleLinkedList<Unit*>::TDoubleLinkedListNode* node = list->FindNode(unit);
+		check(node != nullptr);
+		if (node != nullptr)
+		{
+			list->RemoveNode(node);
+		}
+	}
+	//remove from UnitsByRankByGuid
+	TMap<uint32, Unit*>* map = UnitsByRankByGuid.Find(unit->GetRank());
+	check(map != nullptr);
+	if (map != nullptr)
+	{
+		uint32 count = map->Remove(unit->GetGuid());
+		check(count != 0);
 	}
 
-
+	//remove from either HerosByGuid or RegularsByGuid
+	TMap<uint32, Unit*> &HerosOrRegularsByGuid = (unit->IsHero()) ? HerosByGuid : RegularsByGuid;
+	HerosOrRegularsByGuid.Remove(unit->GetGuid());
 }

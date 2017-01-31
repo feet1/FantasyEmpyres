@@ -1,14 +1,16 @@
 // Fill out your copyright notice in the Description page of Project Settings.
-class HexCoordinate {};
 
 #pragma once
+
+class HexCoordinate {};
+
 /**
  * 
  */
 class PRETENDEMPYRES_API Army
 {
 public:
-	Army();
+	Army(FString& _armyName, const int32 _identity);
 	~Army();
 	void AddExperience(uint32 amount);
 	bool BeginAttack(Army* opponent);
@@ -21,7 +23,7 @@ protected:
 
 private:
 	TMap<uint32, Unit*> UnitsByGuid;
-	TMap<UnitType, TDoubleLinkedList<Unit*> > UnitsByUnitType;
+	TMap<UnitType, TDoubleLinkedList<Unit*>* > UnitsByUnitType;
 	TMap<uint32, Unit*> HerosByGuid;
 	TMap<uint32, Unit*> RegularsByGuid;
 	TMap<uint32 /*rank*/, TMap<uint32, Unit*>> UnitsByRankByGuid;
@@ -31,6 +33,7 @@ private:
 	FString Name;
 	uint32 Player_ID;
 	uint32 unawardedXP;
+	FString armyName;
 	bool DamageUnits(uint32& outXP, uint32 damage);
 	uint32 SumDamage();
 	void DeleteUnit(uint32 guid);

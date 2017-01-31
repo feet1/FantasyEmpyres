@@ -1,7 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "PretendEmpyres.h"
+#include "FastXML.h"
+#include "XmlUnitParser.h"
 #include "Unit.h"
+
 
 namespace
 {
@@ -17,10 +20,18 @@ uint32 Unit::ExperiencePerLevel = 1000;
 float Unit::UnitsLostToStarvationPercent = 0.5f;
 float Unit::FightingPenaltyWhileHungry = 0.5f;
 float Unit::HowMuchHarderYouGetHitWhileHungry = 0.1f;
+//[level:5][race:20][class:38][isHero:1]
+const UnitType Unit::raceMask = 0x7ffff8000000000;
+const UnitType Unit::classMask = 0x7fffffffe;
+const UnitType Unit::heroMask = 0x1;
+const UnitType Unit::levelMask = 0xf800000000000000;
+TMap<UnitType /* race bits of UnitType*/, Unit::Race*> Unit::RaceDatabase;
+TMap<UnitType /* class bits of UnitType*/, Unit::Class*> Unit::ClassDatabase;
 
-Unit::Unit(Army*const _army, UnitType _type, uint32 _quantity, uint32 _level)
+
+
+Unit::Unit(UnitType _type, uint32 _quantity, uint32 _level)
 	    :type(_type)
-		,owningArmy(_army)
 		,quantity(_quantity)
 		,level(_level)
 		,health(1)
@@ -33,9 +44,9 @@ Unit::Unit(Army*const _army, UnitType _type, uint32 _quantity, uint32 _level)
 		level = type >> 27;
 	}
 	type = (type << 5) >> 5;
-	UnitData* found = UnitDatabase.Find(type);
-	checkf(found != nullptr, TEXT("Unit::Unit() was passed a UnitType (%u) which was not found in the database!"), _type);
-	health = found->health + found->healthPerLevel*level;
+//TODO	UnitData* found = UnitDatabase.Find(type);
+//TODO	checkf(found != nullptr, TEXT("Unit::Unit() was passed a UnitType (%u) which was not found in the database!"), _type);
+//TODO	health = found->health + found->healthPerLevel*level;
 
 }
 
@@ -51,13 +62,14 @@ UnitType Unit::GetUnitType() const
 
 bool Unit::IsHero() const
 {
-	UnitData* found = UnitDatabase.Find(type);
-	checkf(found != nullptr, TEXT("Unit::IsHero() instance function was passed a UnitType (%u) which was not fount in ye ol database!"), type);
-	return found->isHero;
+//TODO	UnitData* found = UnitDatabase.Find(type);
+//TODO	checkf(found != nullptr, TEXT("Unit::IsHero() instance function was passed a UnitType (%u) which was not fount in ye ol database!"), type);
+//TODO	return found->isHero;
+	return true; //fuck
 }
 
 uint32 Unit::ModifyHealth(int32 amount)
-{
+{/*
 	UnitData* data = UnitDatabase.Find(type);
 	checkf(data != nullptr, TEXT("Unit::AddHealth() failed to locate it's UnitData in the database. Stored type was (%u)\n"), type);
 	uint32 maxHealth = data->health + data->healthPerLevel * level;
@@ -81,12 +93,13 @@ uint32 Unit::ModifyHealth(int32 amount)
 		health = maxHealth + amount;
 		ModifyQuantity(-unitsKilled);
 		return unitsKilled;
-	}
+	}*/
 	return 0;
 }
 
-void Unit::GrantExperience(uint32 quantity)
+void Unit::GrantExperience(uint32 _quantity)
 {
+	/*
 	UnitData* data = UnitDatabase.Find(type);
 	checkf(data != nullptr, TEXT("Unit::GrantExperience() failed to locate it's UnitData in the database. Stored type was (%u)\n"), type);
 	//manage levels in hear
@@ -95,15 +108,15 @@ void Unit::GrantExperience(uint32 quantity)
 	{
 		++level;
 		experience -= ExperiencePerLevel;
-	}
+	}*/
 }
 
 int32 Unit::ModifyQuantity(int32 _quantity)
 {
-	checkf(-_quantity <= quantity, TEXT("Unit::AddQuantity() was called with a negative value (%d) which was in excess of existing stack, (%u), fool!"), _quantity, quantity);
-	if (_quantity<0 && -_quantity>quantity)
+	checkf(-_quantity <= (int32)quantity, TEXT("Unit::AddQuantity() was called with a negative value (%d) which was in excess of existing stack, (%u), fool!"), _quantity, quantity);
+	if (_quantity<0 && -_quantity>(int32)quantity)
 	{
-		int32 retQuantity = -quantity;
+		int32 retQuantity = -(int32)quantity;
 		quantity = 0;
 		return retQuantity;
 	}
@@ -112,7 +125,6 @@ int32 Unit::ModifyQuantity(int32 _quantity)
 		quantity += _quantity;
 		return _quantity;
 	}
-	
 }
 
 uint32 Unit::Quantity() const
@@ -122,19 +134,23 @@ uint32 Unit::Quantity() const
 
 uint32 Unit::GetMagicAccumulation() const
 {
+	/*
 	UnitData* found = UnitDatabase.Find(type);
 	checkf(found != nullptr, TEXT("Unit::GetMagicAccumulation() was passed a UnitType (%u) which was not found in the database!"), type);
 	uint32 returnMagic = found->magicAccumulation*found->magicAccumulationPerLevel*level*quantity;
 	return returnMagic;
+	*/return 0; //retarded
 }
 
 uint32 Unit::GetAttackDamage() const
 {
+	/*
 	UnitData* data = UnitDatabase.Find(type);
 	checkf(data != nullptr, TEXT("Unit::GetBattleData() failed to locate it's UnitData in the database. Stored type was (%u)\n"), type);
 	float hungerEffect = 1 - hunger * FightingPenaltyWhileHungry;
 	return hungerEffect * (data->damage + data->damagePerLevel * level) * quantity;
-}
+	*/return 3; //derp
+	}
 
 float Unit::GetHunger() const
 {
@@ -143,16 +159,17 @@ float Unit::GetHunger() const
 
 uint32 Unit::GetUpkeep() const
 {
+	/*
 	UnitData* data = UnitDatabase.Find(type);
 	checkf(data != nullptr, TEXT("Unit::GetUpkeep() failed to locate it's UnitData in the database. Stored type was (%u)\n"), type);
 	uint32 _upkeep = (data->upkeep + (level * data->upkeepPerLevel))*quantity;
-	return _upkeep;
+	return _upkeep;*/return 34;
 }
 
 uint32 Unit::FeedUnit(uint32 foodstuffs)
 {
 	uint32 needs = GetUpkeep();
-	check(needs != 0, TEXT("Dividing by zero eh? Unit::FeedUnit() got a zero back from Unit::GetUpkeep() for UnitType %d"), type);
+	checkf(needs != 0, TEXT("Dividing by zero eh? Unit::FeedUnit() got a zero back from Unit::GetUpkeep() for UnitType %d"), type);
 	float percentNeedsMet = FMath::Min(1.0f, (float)foodstuffs / needs);
 	if (percentNeedsMet == 1.0f)
 	{
@@ -189,10 +206,11 @@ uint32 Unit::FeedUnit(uint32 foodstuffs)
 
 uint32 Unit::GetTotalHealth() const
 {
+	/*
 	UnitData* data = UnitDatabase.Find(type);
 	checkf(data != nullptr, TEXT("Unit::GetTotalHealth() failed to locate it's UnitData in the database. Stored type was (%u)\n"), type);
 	uint32 _totalHealth = (data->health + (level * data->healthPerLevel)) * (quantity - 1) + health;
-	return _totalHealth;
+	return _totalHealth;*/return 42;
 }
 
 uint32 Unit::GetGuid() const
@@ -202,6 +220,7 @@ uint32 Unit::GetGuid() const
 
 uint32 Unit::GetXPValue(bool wholeStack) const
 {
+	/*
 	UnitData* data = UnitDatabase.Find(type);
 	checkf(data != nullptr, TEXT("Unit::GetXPValue() failed to locate it's UnitData in the database. Stored type was (%u)\n"), type);
 	if (data == nullptr)
@@ -209,30 +228,50 @@ uint32 Unit::GetXPValue(bool wholeStack) const
 		return 0;
 	}
 	return (data->XPValue + level * data->XPValuePerLevel) * (wholeStack ? quantity : 1);
-
+*/ return -1;
 }
 
 uint32 Unit::GetRank() const
 {
+	/*
 	UnitData* data = UnitDatabase.Find(type);
 	checkf(data != nullptr, TEXT("Unit::GetRank() failed to locate it's UnitData in the database. Stored type was (%u)\n"), type);
 	if (data == nullptr)
 	{
 		return 0;
 	}
-	return data->rank;
+	return data->rank;*/return 54;
 }
 
 
 bool Unit::IsHero(UnitType _type)
 {
+	/*
 	_type = (_type << 5) >> 5; //shift out level so database lookup works
 	UnitData* foundType = UnitDatabase.Find(_type);
 	checkf(foundType != nullptr, TEXT("Unit::IsHero() was passed a UnitType (%u) which was not found in the database!"), _type);
-	return foundType->isHero;
+	return foundType->isHero;*/return false;//always false... always.
 } 
+
+Unit::RaceAndClass Unit::GetRaceAndClass(UnitType _type)
+{
+	//[level:5][race:20][class:38][isHero:1]
+	RaceAndClass returnValue;
+	uint32 race = _type&raceMask;
+	uint32 aclass = _type&classMask;
+	returnValue.aclass = ClassDatabase.FindChecked(aclass);
+	returnValue.race = RaceDatabase.FindChecked(race);
+	return returnValue;
+}
 
 void Unit::InitializeUnitDatabase()
 {
 	//deserialize all the THINGS
+	//use XML thing to serialize the thing
+	//populate the static UnitDatabases
+	XmlUnitParser parser;
+	FText errorMessage;
+	int32 errorLineNumber;
+	FFastXml::ParseXmlFile(&parser, TEXT("D:\file.xml"), nullptr, nullptr, false, false, errorMessage, errorLineNumber);
+	
 }

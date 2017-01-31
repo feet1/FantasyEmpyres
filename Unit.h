@@ -1,21 +1,80 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
-#include "UnitContainer.h"
-#include "Army.h"
 
 
 
 /**
  * 
  */
-typedef uint32 UnitType;
+typedef uint64 UnitType;
 
 class PRETENDEMPYRES_API Unit
 {
 	//Unit Type declarations
 public:
-	enum UnitRace:uint32
+	static const uint32 RearmostRank = 4;
+	static const UnitType raceMask;
+	static const UnitType classMask;
+	static const UnitType heroMask;
+	static const UnitType levelMask;
+
+	struct Class
+	{
+		FString noun;
+		FString plural;
+		FString icon;
+		uint32 rank;
+		uint32 health;
+		uint32 healthperlevel;
+		uint32 damage;
+		uint32 damageperlevel;
+		uint32 recruittime;
+		uint32 recruitcost;
+		uint32 upkeep;
+		uint32 upkeepperlevel;
+		uint32 arcane;
+		uint32 arcaneperlevel;
+		uint32 holy;
+		uint32 holyperlevel;
+		uint32 nature;
+		uint32 natureperlevel;
+		bool canbehero;
+		bool canberegular;
+	};
+
+	struct RacialBonus
+	{
+		FString classnoun;
+		FString noun;
+		FString plural;
+		float health;
+		float healthperlevel;
+		float damage;
+		float damageperlevel;
+		float recruittime;
+		float recruitcost;
+		float upkeep;
+		float upkeepperlevel;
+		float arcane;
+		float arcaneperlevel;
+		float holy;
+		float holyperlevel;
+		float nature;
+		float natureperlevel;
+	};
+
+	struct Race
+	{
+		FString noun;
+		FString plural;
+		FString adjective;
+		FString icon;
+		float prevalence;
+		TMap<FString /*class noun*/, RacialBonus*> bonuses;
+	};
+
+/*	enum UnitRace:uint32
 	{
 		Human             = 1<<0,
 		Elf               = 1<<1,
@@ -30,8 +89,8 @@ public:
 		//etc			  = 1<<,
 
 
-	};
-	enum UnitClass:uint32
+	}; */
+/*	enum UnitClass:uint32
 	{
 		//etc			 = 1<<20,
 		Fighter          = 1<<21,
@@ -41,49 +100,57 @@ public:
 		Wizard			 = 1<<25,
 		Druid			 = 1<<26
 
-	};
-	enum MagicType
-	{
-		None,
-		Wizard,
-		Cleric,
-		Druid
-	};
-	struct UnitData
+	}; */
+/*	struct UnitData
 	{
 		uint32 health; //multiply for stack
 		uint32 rank;
 		uint32 upkeep; //multiply for stack
 		uint32 recruitCost;
+		uint32 recruitTime;
 		uint32 damage; //multiply for stack
-		uint32 range;
 		uint32 armor;
-		UnitClass unitClass;
-		UnitRace unitRace;
+		//UnitClass unitClass;
+		//UnitRace unitRace;
 		uint32 magicAccumulation;
 		uint32 maxLevel;
+		uint32 arcane;
+		uint32 holy;
+		uint32 nature;
 		uint32 damagePerLevel;
 		uint32 armorPerLevel;
 		uint32 rangePerLevel;
 		uint32 upkeepPerLevel;
 		uint32 healthPerLevel;
-		uint32 magicAccumulationPerLevel;
-		MagicType magicType;
+		uint32 arcanePerLevel;
+		uint32 holyPerLevel;
+		uint32 naturePerLevel;
 		bool isHero;
-		uint32 XPValue;
-		uint32 XPValuePerLevel;
+		uint32 xPValue;
+		uint32 xPValuePerLevel;
+		FString raceIcon;
+		FString classIcon;
+		bool canbehero;
+		bool canberegular;
+	}; */
+
+private:
+	
+	struct RaceAndClass
+	{
+		const Class* aclass;
+		const Race* race;
 	};
 
 
 	//per-instance features
 public:
-	Unit(Army*const _army, UnitType _type, uint32 _quantity=1, uint32 _level=0);
+	Unit(UnitType _type, uint32 _quantity=1, uint32 _level=0);
 	~Unit();
 	UnitType GetUnitType() const;
 	bool IsHero() const;
-	//returns # units killed
-	uint32 ModifyHealth(int32 amount);
-	void GrantExperience(uint32 quantity);
+	uint32 ModifyHealth(int32 amount);	//returns # units killed
+	void GrantExperience(uint32 _quantity);
 	int32 ModifyQuantity(int32 _quantity);
 	uint32 Quantity() const;
 	uint32 GetMagicAccumulation() const;
@@ -100,7 +167,6 @@ public:
 
 private:
 	UnitType type;
-	Army* owningArmy;
 	uint32 quantity;
 	uint32 level;
 	uint32 health;
@@ -119,7 +185,8 @@ public:
 	static float HowMuchHarderYouGetHitWhileHungry;
 	static TMap<uint32/*guid*/, Unit*> UnitDatabaseByGuid;
 private:
-	static TMap<UnitType,UnitData> UnitDatabase;
-
+	static TMap<UnitType /* race bits of UnitType*/,Race*> RaceDatabase;
+	static TMap<UnitType /* class bits of UnitType*/, Class*> ClassDatabase;
+	static RaceAndClass GetRaceAndClass(UnitType _type);
 };
 
