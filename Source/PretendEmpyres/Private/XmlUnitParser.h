@@ -1,4 +1,6 @@
 #pragma once
+class Unit::Race;
+class Unit::Class;
 
 class PRETENDEMPYRES_API XmlUnitParser : public IFastXmlCallback
 {
