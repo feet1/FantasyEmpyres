@@ -1,6 +1,6 @@
 #pragma once
-class Unit::Race;
-class Unit::Class;
+#include "FastXml.h"
+#include "Unit.h"
 
 class PRETENDEMPYRES_API XmlUnitParser : public IFastXmlCallback
 {
