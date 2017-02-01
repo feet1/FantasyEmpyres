@@ -16,9 +16,10 @@ public:
 	static const uint32 RearmostRank = 4;
    static const uint32 HeroMaxLevel = 30;
    static const uint32 RegularMaxLevel = 4;
-	static const UnitType raceMask;
-	static const UnitType classMask;
+   static const UnitType raceMask;
+   static const UnitType classMask;
 	static const UnitType heroMask;
+   static const UnitType fullClassMask;
 	static const UnitType levelMask;
 
 	struct Class

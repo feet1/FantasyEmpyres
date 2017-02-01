@@ -20,11 +20,21 @@ uint32 Unit::ExperiencePerLevel = 1000;
 float Unit::UnitsLostToStarvationPercent = 0.5f;
 float Unit::FightingPenaltyWhileHungry = 0.5f;
 float Unit::HowMuchHarderYouGetHitWhileHungry = 0.1f;
-//[level:5][race:20][class:38][isHero:1]
+
+//[level:5] [race:20] [class:38] [isHero:1]
+// LLLL LRRR  RRRR RRRR  RRRR RRRR  RCCC CCCC  CCCC CCCC  CCCC CCCC  CCCC CCCC  CCCC CCCH
+// 0000 0000  0000 0000  0000 0000  0000 0000  0000 0000  0000 0000  0000 0000  0000 0000
+// Since a hero 'knight' is a different class for the purpose of stats,
+// we have a mask that accounts for the hero bit (fullClassMask) whereas
+// the "classMask" represents the part of the class ignorant of the hero bit
+// such as to see if x regulars are the same type of unit as y hero
 const UnitType Unit::raceMask = 0x7ffff8000000000;
 const UnitType Unit::classMask = 0x7fffffffe;
 const UnitType Unit::heroMask = 0x1;
+const UnitType Unit::fullClassMask = Unit::classMask | Unit::heroMask;
 const UnitType Unit::levelMask = 0xf800000000000000;
+
+
 TMap<UnitType /* race bits of UnitType*/, Unit::Race*> Unit::RaceDatabase;
 TMap<UnitType /* class bits of UnitType*/, Unit::Class*> Unit::ClassDatabase;
 TMap<UnitType, Unit::RaceAndClass> Unit::____RaceAndClassCache____UseGetRaceAndClassFunction_Instead_Stupid;
@@ -225,7 +235,7 @@ const Unit::RaceAndClass& Unit::GetRaceAndClass(UnitType type)
    if (cachedValuep == nullptr)
    {
       Race* racep = RaceDatabase.FindChecked(type & raceMask);
-      Class* classp = ClassDatabase.FindChecked(type & classMask);
+      Class* classp = ClassDatabase.FindChecked(type & fullClassMask);
       //lookup for specific racial version of this class
       //if the class is not found, use generic racial bonus "any"
       RacialBonus** bonuspp = racep->bonuses.Find(classp->noun);
@@ -264,8 +274,7 @@ const Unit::RaceAndClass& Unit::GetRaceAndClass(UnitType type)
       cachedValuep->holyperlevel = (uint32)(classp->holyperlevel * bonusp->holyperlevel);
       cachedValuep->nature = (uint32)(classp->nature * bonusp->nature);
       cachedValuep->natureperlevel = (uint32)(classp->natureperlevel * bonusp->natureperlevel);
-      cachedValuep->canbehero = classp->canbehero;
-      cachedValuep->canberegular = classp->canberegular;
+      cachedValuep->ishero = classp->ishero;
    }
 	return *cachedValuep;
 }
