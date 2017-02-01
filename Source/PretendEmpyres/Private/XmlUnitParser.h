@@ -1,4 +1,6 @@
 #pragma once
+#include "Unit.h"
+
 class Unit::Race;
 class Unit::Class;
 

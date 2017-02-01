@@ -22,6 +22,7 @@ $RECYCLE.BIN/
 *.sdf
 *.suo
 *.opendb
+*.VC.db
 
 #UE4 specific stuff to ignore
 Intermediate/

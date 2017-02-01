@@ -1,7 +1,6 @@
 #include "PretendEmpyres.h"
 #include "FastXml.h"
 #include "XmlParser.h"
-#include "Unit.h"
 #include "XmlUnitParser.h"
 
 //see https://answers.unrealengine.com/questions/1859/log-issue-again.html?sort=oldest for details on log category
@@ -338,6 +337,8 @@ bool XmlUnitParser::ProcessElement_RaceBonus(const TCHAR* ElementName, const TCH
 	READNODE_FSTRING(currentBonus, classnoun);
 	READNODE_FSTRING(currentBonus, noun);
 	READNODE_FSTRING(currentBonus, plural);
+   READNODE_FLOAT(currentBonus, xpvalue);
+   READNODE_FLOAT(currentBonus, xpvalueperlevel);
 	READNODE_FLOAT(currentBonus, health);
 	READNODE_FLOAT(currentBonus, healthperlevel);
 	READNODE_FLOAT(currentBonus, damage);
@@ -357,7 +358,7 @@ bool XmlUnitParser::ProcessElement_RaceBonus(const TCHAR* ElementName, const TCH
 	return false;
 }
 
-//This is called after a new class is allocaed in currentClass, called once per node under the class node
+//This is called after a new class is allocated in currentClass, called once per node under the class node
 bool XmlUnitParser::ProcessElement_Class(const TCHAR* ElementName, const TCHAR* ElementData, int32 XmlFileLineNumber)
 {
 	check(currentClass != nullptr);
@@ -376,12 +377,14 @@ bool XmlUnitParser::ProcessElement_Class(const TCHAR* ElementName, const TCHAR* 
 	READNODE_UINT32(currentClass, recruitcost);
 	READNODE_UINT32(currentClass, upkeep);
 	READNODE_UINT32(currentClass, upkeepperlevel);
-	READNODE_UINT32(currentClass, arcane);
-	READNODE_UINT32(currentClass, arcaneperlevel);
-	READNODE_UINT32(currentClass, holy);
-	READNODE_UINT32(currentClass, holyperlevel);
-	READNODE_UINT32(currentClass, nature);
-	READNODE_UINT32(currentClass, natureperlevel);
+   READNODE_UINT32(currentClass, xpvalue);
+   READNODE_UINT32(currentClass, xpvalueperlevel);
+	READNODE_INT32(currentClass, arcane);
+   READNODE_INT32(currentClass, arcaneperlevel);
+   READNODE_INT32(currentClass, holy);
+   READNODE_INT32(currentClass, holyperlevel);
+   READNODE_INT32(currentClass, nature);
+   READNODE_INT32(currentClass, natureperlevel);
 
 	UE_LOG(PretendEmpyers, Log, TEXT("XmlUnitParser::ProcessElement_RaceStat %s is not a recognized element of a UnitRace (Line %d)\n"), ElementName, XmlFileLineNumber);
 	return false;

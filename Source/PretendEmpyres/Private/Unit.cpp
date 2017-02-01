@@ -31,23 +31,19 @@ TMap<UnitType /* class bits of UnitType*/, Unit::Class*> Unit::ClassDatabase;
 
 
 Unit::Unit(UnitType _type, uint32 _quantity, uint32 _level)
-	    :type(_type)
-		,quantity(_quantity)
-		,level(_level)
-		,health(1)
-		,experience(0)
-		,hunger(0.0f)
-		,guid(GetNewGuid())
+	    :m_type(_type)
+		,m_quantity(_quantity)
+		,m_level(_level)
+		,m_health(1)
+		,m_experience(0)
+		,m_hunger(0.0f)
+		,m_guid(GetNewGuid())
 {
-	if (level == 0)
+	if (m_level == 0)
 	{
-		level = type >> 27;
+		m_level = m_type >> 27;
 	}
-	type = (type << 5) >> 5;
-//TODO	UnitData* found = UnitDatabase.Find(type);
-//TODO	checkf(found != nullptr, TEXT("Unit::Unit() was passed a UnitType (%u) which was not found in the database!"), _type);
-//TODO	health = found->health + found->healthPerLevel*level;
-
+	m_type = (m_type << 5) >> 5;
 }
 
 Unit::~Unit()
@@ -57,140 +53,131 @@ Unit::~Unit()
 
 UnitType Unit::GetUnitType() const
 {
-	return type & (level << 27); //add in level
+	return m_type & ~levelMask;
 }
 
 bool Unit::IsHero() const
 {
-//TODO	UnitData* found = UnitDatabase.Find(type);
-//TODO	checkf(found != nullptr, TEXT("Unit::IsHero() instance function was passed a UnitType (%u) which was not fount in ye ol database!"), type);
-//TODO	return found->isHero;
-	return true; //fuck
+   return (levelMask & m_type) != 0;
 }
 
 uint32 Unit::ModifyHealth(int32 amount)
-{/*
-	UnitData* data = UnitDatabase.Find(type);
-	checkf(data != nullptr, TEXT("Unit::AddHealth() failed to locate it's UnitData in the database. Stored type was (%u)\n"), type);
-	uint32 maxHealth = data->health + data->healthPerLevel * level;
-	if (amount < 0)
-	{
-		amount += (hunger * HowMuchHarderYouGetHitWhileHungry * amount);
-	}
+{
+   const RaceAndClass& raceAndClass = GetRaceAndClass(m_type);
+   uint32 maxHealth = raceAndClass.health + raceAndClass.healthperlevel * m_level;
+
 	if (amount >= 0)
 	{
-		health = FMath::Min(maxHealth, health + amount);
+		m_health = FMath::Min(maxHealth, m_health + amount);
 	}
-	else if (health > -amount)
-	{
-		health += amount;
-	}
-	else
-	{
-		amount += health;
-		uint32 unitsKilled = FMath::Min(quantity, 1 + FMath::Abs(amount) / maxHealth);
-		amount += (unitsKilled - 1) * maxHealth;
-		health = maxHealth + amount;
-		ModifyQuantity(-unitsKilled);
-		return unitsKilled;
-	}*/
+   else
+   {
+      amount += (m_hunger * HowMuchHarderYouGetHitWhileHungry * amount);
+	   if (m_health > -amount)
+	   {
+		   m_health += amount;
+	   }
+	   else
+	   {
+		   amount += m_health;
+		   uint32 unitsKilled = FMath::Min(m_quantity, 1 + FMath::Abs(amount) / maxHealth);
+		   amount += (unitsKilled - 1) * maxHealth;
+		   m_health = maxHealth + amount;
+		   ModifyQuantity(-unitsKilled);
+		   return unitsKilled;
+	   }
+   }
 	return 0;
 }
 
-void Unit::GrantExperience(uint32 _quantity)
+void Unit::GrantExperience(uint32 quantity)
 {
-	/*
-	UnitData* data = UnitDatabase.Find(type);
-	checkf(data != nullptr, TEXT("Unit::GrantExperience() failed to locate it's UnitData in the database. Stored type was (%u)\n"), type);
-	//manage levels in hear
-	experience += quantity;
-	while(experience > ExperiencePerLevel && level < data->maxLevel)
+	m_experience += quantity;
+   uint32 maxLevel = ((bool) (m_type & heroMask)) ? HeroMaxLevel : RegularMaxLevel;
+	while(m_experience > ExperiencePerLevel && m_level < maxLevel)
 	{
-		++level;
-		experience -= ExperiencePerLevel;
-	}*/
+		++m_level;
+		m_experience -= ExperiencePerLevel;
+	}
 }
 
 int32 Unit::ModifyQuantity(int32 _quantity)
 {
-	checkf(-_quantity <= (int32)quantity, TEXT("Unit::AddQuantity() was called with a negative value (%d) which was in excess of existing stack, (%u), fool!"), _quantity, quantity);
-	if (_quantity<0 && -_quantity>(int32)quantity)
+	checkf(-_quantity <= (int32)m_quantity, TEXT("Unit::AddQuantity() was called with a negative value (%d) which was in excess of existing stack, (%u), fool!"), _quantity, m_quantity);
+	if (_quantity<0 && -_quantity>(int32)m_quantity)
 	{
-		int32 retQuantity = -(int32)quantity;
-		quantity = 0;
+		int32 retQuantity = -(int32)m_quantity;
+		m_quantity = 0;
 		return retQuantity;
 	}
 	else
 	{
-		quantity += _quantity;
+		m_quantity += _quantity;
 		return _quantity;
 	}
 }
 
 uint32 Unit::Quantity() const
 {
-	return quantity;
+	return m_quantity;
 }
 
-uint32 Unit::GetMagicAccumulation() const
+void Unit::GetMagicAccumulation(int32& outArcane, int32& outHoly, int32& outNature) const
 {
-	/*
-	UnitData* found = UnitDatabase.Find(type);
-	checkf(found != nullptr, TEXT("Unit::GetMagicAccumulation() was passed a UnitType (%u) which was not found in the database!"), type);
-	uint32 returnMagic = found->magicAccumulation*found->magicAccumulationPerLevel*level*quantity;
-	return returnMagic;
-	*/return 0; //retarded
+   const RaceAndClass& rac = GetRaceAndClass(m_type);
+   outArcane = rac.arcane + rac.arcaneperlevel * m_level;
+   outHoly = rac.holy + rac.holyperlevel * m_level;
+   outNature = rac.nature + rac.natureperlevel * m_level;
+
 }
 
 uint32 Unit::GetAttackDamage() const
 {
-	/*
-	UnitData* data = UnitDatabase.Find(type);
-	checkf(data != nullptr, TEXT("Unit::GetBattleData() failed to locate it's UnitData in the database. Stored type was (%u)\n"), type);
-	float hungerEffect = 1 - hunger * FightingPenaltyWhileHungry;
-	return hungerEffect * (data->damage + data->damagePerLevel * level) * quantity;
-	*/return 3; //derp
-	}
+   const RaceAndClass& rac = GetRaceAndClass(m_type);
+	float hungerEffect = 1 - m_hunger * FightingPenaltyWhileHungry;
+	return hungerEffect * (rac.damage + rac.damageperlevel * m_level) * m_quantity;
+}
 
 float Unit::GetHunger() const
 {
-	return hunger;
+	return m_hunger;
 }
 
 uint32 Unit::GetUpkeep() const
 {
-	/*
-	UnitData* data = UnitDatabase.Find(type);
-	checkf(data != nullptr, TEXT("Unit::GetUpkeep() failed to locate it's UnitData in the database. Stored type was (%u)\n"), type);
-	uint32 _upkeep = (data->upkeep + (level * data->upkeepPerLevel))*quantity;
-	return _upkeep;*/return 34;
+   const RaceAndClass& rac = GetRaceAndClass(m_type);
+   uint32 upkeep = (rac.upkeep + (m_level * rac.upkeepperlevel)) * m_quantity;
+	return upkeep;
 }
 
 uint32 Unit::FeedUnit(uint32 foodstuffs)
 {
 	uint32 needs = GetUpkeep();
-	checkf(needs != 0, TEXT("Dividing by zero eh? Unit::FeedUnit() got a zero back from Unit::GetUpkeep() for UnitType %d"), type);
-	float percentNeedsMet = FMath::Min(1.0f, (float)foodstuffs / needs);
+	if(needs == 0)
+   {
+      return foodstuffs;
+   }
+   float percentNeedsMet = FMath::Min(1.0f, (float)foodstuffs / needs);
 	if (percentNeedsMet == 1.0f)
 	{
-		hunger /= 2;
+		m_hunger /= 2;
 	}
 	else
 	{
-		hunger = FMath::Lerp(hunger, 1.0f - percentNeedsMet, 0.33f);
+		m_hunger = FMath::Lerp(m_hunger, 1.0f - percentNeedsMet, 0.33f);
 	}
 
-	if (hunger > 0.0f)
+	if (m_hunger > 0.0f)
 	{
-		if (hunger < 0.05f)
+		if (m_hunger < 0.05f)
 		{
-			hunger = 0.0f;
+			m_hunger = 0.0f;
 		}
-		else if (hunger > 0.9f)
+		else if (m_hunger > 0.9f)
 		{
-			hunger = 1.0f;
+			m_hunger = 1.0f;
 			
-			int32 UnitsStarvedToDeath = quantity * (1.0f - percentNeedsMet) * UnitsLostToStarvationPercent;
+			int32 UnitsStarvedToDeath = m_quantity * (1.0f - percentNeedsMet) * UnitsLostToStarvationPercent;
 			ModifyQuantity(-UnitsStarvedToDeath);
 			//TODO: Broadcast and event for the system to handle that a "your shit is starving to death m'lord"
 		}
@@ -206,40 +193,26 @@ uint32 Unit::FeedUnit(uint32 foodstuffs)
 
 uint32 Unit::GetTotalHealth() const
 {
-	/*
-	UnitData* data = UnitDatabase.Find(type);
-	checkf(data != nullptr, TEXT("Unit::GetTotalHealth() failed to locate it's UnitData in the database. Stored type was (%u)\n"), type);
-	uint32 _totalHealth = (data->health + (level * data->healthPerLevel)) * (quantity - 1) + health;
-	return _totalHealth;*/return 42;
+	
+   const RaceAndClass& rac = GetRaceAndClass(m_type);
+   uint32 totalHealth = (rac.health + (m_level * rac.healthperlevel)) * (m_quantity - 1) + m_health;
+	return totalHealth;
 }
 
 uint32 Unit::GetGuid() const
 {
-	return guid;
+	return m_guid;
 }
 
 uint32 Unit::GetXPValue(bool wholeStack) const
 {
-	/*
-	UnitData* data = UnitDatabase.Find(type);
-	checkf(data != nullptr, TEXT("Unit::GetXPValue() failed to locate it's UnitData in the database. Stored type was (%u)\n"), type);
-	if (data == nullptr)
-	{
-		return 0;
-	}
-	return (data->XPValue + level * data->XPValuePerLevel) * (wholeStack ? quantity : 1);
-*/ return -1;
+   const RaceAndClass& rac = GetRaceAndClass(m_type);
+   return (rac.xpvalue + m_level * rac.xpvalueperlevel) * (wholeStack ? m_quantity : 1);
 }
 
 uint32 Unit::GetRank() const
 {
-	/*
-	UnitData* data = UnitDatabase.Find(type);
-	checkf(data != nullptr, TEXT("Unit::GetRank() failed to locate it's UnitData in the database. Stored type was (%u)\n"), type);
-	if (data == nullptr)
-	{
-		return 0;
-	}
+   const RaceAndClass& rac = GetRaceAndClass(m_type);
 	return data->rank;*/return 54;
 }
 
@@ -253,15 +226,57 @@ bool Unit::IsHero(UnitType _type)
 	return foundType->isHero;*/return false;//always false... always.
 } 
 
-Unit::RaceAndClass Unit::GetRaceAndClass(UnitType _type)
+const Unit::RaceAndClass& Unit::GetRaceAndClass(UnitType type)
 {
 	//[level:5][race:20][class:38][isHero:1]
-	RaceAndClass returnValue;
-	uint32 race = _type&raceMask;
-	uint32 aclass = _type&classMask;
-	returnValue.aclass = ClassDatabase.FindChecked(aclass);
-	returnValue.race = RaceDatabase.FindChecked(race);
-	return returnValue;
+   type &= ~levelMask;
+   RaceAndClass* cachedValuep = ____RaceAndClassCache____UseGetRaceAndClassFunction_Instead_Stupid.Find(type);
+   if (cachedValuep == nullptr)
+   {
+      Race* racep = RaceDatabase.FindChecked(type & raceMask);
+      Class* classp = ClassDatabase.FindChecked(type & classMask);
+      //lookup for specific racial version of this class
+      //if the class is not found, use generic racial bonus "any"
+      RacialBonus** bonuspp = racep->bonuses.Find(classp->noun);
+      RacialBonus* bonusp;
+      if(bonuspp == nullptr)
+      {
+         bonusp = racep->bonuses.FindChecked(TEXT("any"));
+      }
+      else
+      {
+         bonusp = *bonuspp;
+      }
+      cachedValuep = &____RaceAndClassCache____UseGetRaceAndClassFunction_Instead_Stupid.FindOrAdd(type);
+      cachedValuep->classNoun = classp->noun;
+      cachedValuep->classPlural = classp->plural;
+      cachedValuep->classIcon = classp->icon;
+      cachedValuep->raceNoun = racep->noun;
+      cachedValuep->racePlural = racep->plural;
+      cachedValuep->raceIcon = racep->icon;
+      cachedValuep->raceAdjective = racep->adjective;
+      cachedValuep->racePrevalence = racep->prevalence;
+      cachedValuep->rank = classp->rank;
+      cachedValuep->health = (uint32)(classp->health * bonusp->health);
+      cachedValuep->healthperlevel = (uint32)(classp->healthperlevel * bonusp->healthperlevel);
+      cachedValuep->damage = (uint32)(classp->damage * bonusp->damage);
+      cachedValuep->damageperlevel = (uint32)(classp->damageperlevel * bonusp->damageperlevel);
+      cachedValuep->recruittime = (uint32)(classp->recruittime * bonusp->recruittime);
+      cachedValuep->recruitcost = (uint32)(classp->recruitcost * bonusp->recruitcost);
+      cachedValuep->upkeep = (uint32)(classp->upkeep * bonusp->upkeep);
+      cachedValuep->upkeepperlevel = (uint32)(classp->upkeepperlevel * bonusp->upkeepperlevel);
+      cachedValuep->upkeepperlevel = (uint32)(classp->xpvalue * bonusp->xpvalue);
+      cachedValuep->upkeepperlevel = (uint32)(classp->xpvalueperlevel * bonusp->xpvalueperlevel);
+      cachedValuep->arcane = (uint32)(classp->arcane * bonusp->arcane);
+      cachedValuep->arcaneperlevel = (uint32)(classp->arcaneperlevel * bonusp->arcaneperlevel);
+      cachedValuep->holy = (uint32)(classp->holy * bonusp->holy);
+      cachedValuep->holyperlevel = (uint32)(classp->holyperlevel * bonusp->holyperlevel);
+      cachedValuep->nature = (uint32)(classp->nature * bonusp->nature);
+      cachedValuep->natureperlevel = (uint32)(classp->natureperlevel * bonusp->natureperlevel);
+      cachedValuep->canbehero = classp->canbehero;
+      cachedValuep->canberegular = classp->canberegular;
+   }
+	return *cachedValuep;
 }
 
 void Unit::InitializeUnitDatabase()
@@ -269,6 +284,7 @@ void Unit::InitializeUnitDatabase()
 	//deserialize all the THINGS
 	//use XML thing to serialize the thing
 	//populate the static UnitDatabases
+	// initialize RaceAndClassCache
 	XmlUnitParser parser;
 	FText errorMessage;
 	int32 errorLineNumber;

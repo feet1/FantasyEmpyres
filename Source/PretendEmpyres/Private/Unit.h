@@ -14,6 +14,8 @@ class PRETENDEMPYRES_API Unit
 	//Unit Type declarations
 public:
 	static const uint32 RearmostRank = 4;
+   static const uint32 HeroMaxLevel = 30;
+   static const uint32 RegularMaxLevel = 4;
 	static const UnitType raceMask;
 	static const UnitType classMask;
 	static const UnitType heroMask;
@@ -33,12 +35,14 @@ public:
 		uint32 recruitcost;
 		uint32 upkeep;
 		uint32 upkeepperlevel;
-		uint32 arcane;
-		uint32 arcaneperlevel;
-		uint32 holy;
-		uint32 holyperlevel;
-		uint32 nature;
-		uint32 natureperlevel;
+      uint32 xpvalue;
+      uint32 xpvalueperlevel;
+		int32 arcane;
+		int32 arcaneperlevel;
+		int32 holy;
+		int32 holyperlevel;
+		int32 nature;
+		int32 natureperlevel;
 		bool canbehero;
 		bool canberegular;
 	};
@@ -48,6 +52,8 @@ public:
 		FString classnoun;
 		FString noun;
 		FString plural;
+      float xpvalue;
+      float xpvalueperlevel;
 		float health;
 		float healthperlevel;
 		float damage;
@@ -74,72 +80,38 @@ public:
 		TMap<FString /*class noun*/, RacialBonus*> bonuses;
 	};
 
-/*	enum UnitRace:uint32
-	{
-		Human             = 1<<0,
-		Elf               = 1<<1,
-		Dwarf			  = 1<<2,
-		Orc				  = 1<<3,
-		Halfling		  = 1<<4,
-		Gnome			  = 1<<5,
-		Goblin			  = 1<<6,
-		Skeleton		  = 1<<7,
-		Vampire			  = 1<<8,
-		Lizardfolk		  = 1<<9,
-		//etc			  = 1<<,
-
-
-	}; */
-/*	enum UnitClass:uint32
-	{
-		//etc			 = 1<<20,
-		Fighter          = 1<<21,
-		Ranger			 = 1<<22,
-		Knight			 = 1<<23,
-		Cleric			 = 1<<24,
-		Wizard			 = 1<<25,
-		Druid			 = 1<<26
-
-	}; */
-/*	struct UnitData
-	{
-		uint32 health; //multiply for stack
-		uint32 rank;
-		uint32 upkeep; //multiply for stack
-		uint32 recruitCost;
-		uint32 recruitTime;
-		uint32 damage; //multiply for stack
-		uint32 armor;
-		//UnitClass unitClass;
-		//UnitRace unitRace;
-		uint32 magicAccumulation;
-		uint32 maxLevel;
-		uint32 arcane;
-		uint32 holy;
-		uint32 nature;
-		uint32 damagePerLevel;
-		uint32 armorPerLevel;
-		uint32 rangePerLevel;
-		uint32 upkeepPerLevel;
-		uint32 healthPerLevel;
-		uint32 arcanePerLevel;
-		uint32 holyPerLevel;
-		uint32 naturePerLevel;
-		bool isHero;
-		uint32 xPValue;
-		uint32 xPValuePerLevel;
-		FString raceIcon;
-		FString classIcon;
-		bool canbehero;
-		bool canberegular;
-	}; */
-
 private:
-	
-	struct RaceAndClass
+
+	//pre-calculated cached values
+	struct RaceAndClass  
 	{
-		const Class* aclass;
-		const Race* race;
+      FString classNoun;
+      FString classPlural;
+      FString classIcon;
+      FString raceNoun;
+      FString racePlural;
+      FString raceIcon;
+      FString raceAdjective;
+      float racePrevalence;
+      uint32 rank;
+      uint32 health;
+      uint32 healthperlevel;
+      uint32 damage;
+      uint32 damageperlevel;
+      uint32 recruittime;
+      uint32 recruitcost;
+      uint32 upkeep;
+      uint32 upkeepperlevel;
+      uint32 xpvalue;
+      uint32 xpvalueperlevel;
+      int32 arcane;
+      int32 arcaneperlevel;
+      int32 holy;
+      int32 holyperlevel;
+      int32 nature;
+      int32 natureperlevel;
+      bool canbehero;
+      bool canberegular;
 	};
 
 
@@ -153,7 +125,7 @@ public:
 	void GrantExperience(uint32 _quantity);
 	int32 ModifyQuantity(int32 _quantity);
 	uint32 Quantity() const;
-	uint32 GetMagicAccumulation() const;
+	void GetMagicAccumulation(int32& outArcane, int32& outHoly, int32& outNature) const;
 	uint32 GetAttackDamage() const;
 	float GetHunger() const;
 	uint32 GetUpkeep() const;
@@ -166,19 +138,20 @@ public:
 	
 
 private:
-	UnitType type;
-	uint32 quantity;
-	uint32 level;
-	uint32 health;
-	uint32 experience;
-	float hunger;
-	uint32 guid;
+	UnitType m_type;
+	uint32 m_quantity;
+	uint32 m_level;
+	uint32 m_health;
+	uint32 m_experience;
+	float m_hunger;
+	uint32 m_guid;
 
 	//non-instance features
 public:
 	
 	static void InitializeUnitDatabase();
 	static bool IsHero(UnitType);
+   static const RaceAndClass& GetRaceAndClass(UnitType type);
 	static uint32 ExperiencePerLevel;
 	static float UnitsLostToStarvationPercent;
 	static float FightingPenaltyWhileHungry;
@@ -187,6 +160,6 @@ public:
 private:
 	static TMap<UnitType /* race bits of UnitType*/,Race*> RaceDatabase;
 	static TMap<UnitType /* class bits of UnitType*/, Class*> ClassDatabase;
-	static RaceAndClass GetRaceAndClass(UnitType _type);
+   static TMap<UnitType, RaceAndClass> ____RaceAndClassCache____UseGetRaceAndClassFunction_Instead_Stupid;
 };
 
