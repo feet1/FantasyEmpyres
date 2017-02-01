@@ -148,9 +148,7 @@ private:
 
 	//non-instance features
 public:
-	
 	static void InitializeUnitDatabase();
-	static bool IsHero(UnitType);
    static const RaceAndClass& GetRaceAndClass(UnitType type);
 	static uint32 ExperiencePerLevel;
 	static float UnitsLostToStarvationPercent;

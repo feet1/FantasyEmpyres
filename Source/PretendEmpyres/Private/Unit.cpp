@@ -27,6 +27,7 @@ const UnitType Unit::heroMask = 0x1;
 const UnitType Unit::levelMask = 0xf800000000000000;
 TMap<UnitType /* race bits of UnitType*/, Unit::Race*> Unit::RaceDatabase;
 TMap<UnitType /* class bits of UnitType*/, Unit::Class*> Unit::ClassDatabase;
+TMap<UnitType, Unit::RaceAndClass> Unit::____RaceAndClassCache____UseGetRaceAndClassFunction_Instead_Stupid;
 
 
 
@@ -73,17 +74,17 @@ uint32 Unit::ModifyHealth(int32 amount)
    else
    {
       amount += (m_hunger * HowMuchHarderYouGetHitWhileHungry * amount);
-	   if (m_health > -amount)
+	   if (m_health > (uint32)FMath::Abs(amount))
 	   {
-		   m_health += amount;
+		   m_health -= (uint32)FMath::Abs(amount);
 	   }
 	   else
 	   {
-		   amount += m_health;
+		   amount += (int32)m_health;
 		   uint32 unitsKilled = FMath::Min(m_quantity, 1 + FMath::Abs(amount) / maxHealth);
-		   amount += (unitsKilled - 1) * maxHealth;
-		   m_health = maxHealth + amount;
-		   ModifyQuantity(-unitsKilled);
+		   amount += (int32)((unitsKilled - 1) * maxHealth);
+		   m_health = maxHealth - FMath::Abs(amount);
+		   ModifyQuantity(-(int32)unitsKilled);
 		   return unitsKilled;
 	   }
    }
@@ -213,18 +214,8 @@ uint32 Unit::GetXPValue(bool wholeStack) const
 uint32 Unit::GetRank() const
 {
    const RaceAndClass& rac = GetRaceAndClass(m_type);
-	return data->rank;*/return 54;
+	return rac.rank;
 }
-
-
-bool Unit::IsHero(UnitType _type)
-{
-	/*
-	_type = (_type << 5) >> 5; //shift out level so database lookup works
-	UnitData* foundType = UnitDatabase.Find(_type);
-	checkf(foundType != nullptr, TEXT("Unit::IsHero() was passed a UnitType (%u) which was not found in the database!"), _type);
-	return foundType->isHero;*/return false;//always false... always.
-} 
 
 const Unit::RaceAndClass& Unit::GetRaceAndClass(UnitType type)
 {
@@ -288,6 +279,6 @@ void Unit::InitializeUnitDatabase()
 	XmlUnitParser parser;
 	FText errorMessage;
 	int32 errorLineNumber;
-	FFastXml::ParseXmlFile(&parser, TEXT("D:\file.xml"), nullptr, nullptr, false, false, errorMessage, errorLineNumber);
+	FFastXml::ParseXmlFile(&parser, *FPaths::Combine(*FPaths::GameContentDir(), TEXT("/content/unitdatabase.xml")), nullptr, nullptr, false, false, errorMessage, errorLineNumber);
 	
 }
