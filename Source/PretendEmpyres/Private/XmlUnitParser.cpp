@@ -4,6 +4,159 @@
 //see https://answers.unrealengine.com/questions/1859/log-issue-again.html?sort=oldest for details on log category
 DEFINE_LOG_CATEGORY_STATIC(PretendEmpyers, All, All);
 
+
+/////// Macros to support serialization, collapse the #pragma region to clean things up
+#pragma region ReadNodeMacros
+#define READNODE_FSTRING(_container_, _name_)                   \
+   if (FString(ElementName) == FString(TEXT(#_name_)))          \
+   {                                                            \
+      _container_##->##_name_ = FString(ElementData);           \
+      return true;                                              \
+   }
+
+#define READNODE_FLOAT(_container_, _name_)                  \
+   if (FString(ElementName) == FString(TEXT(#_name_)))       \
+   {                                                         \
+      _container_##->##_name_ = FCString::Atof(ElementData); \
+      return true;                                           \
+   }
+
+#define READNODE_BOOL(_container_, _name_)                                       \
+   if (FString(ElementName) == FString(TEXT(#_name_)))                           \
+   {                                                                             \
+      if(FString(ElementData)!=FString(TEXT("true"))||FString(ElementData)!=FString(TEXT("false")))\
+      {                                                                          \
+         UE_LOG(PretendEmpyers, Warning, TEXT("XmlUnitParser A bool value is neither 'true' nor 'false'. Value:'%s'\n"), ElementData);\
+      }                                                                          \
+      _container_##->##_name_ = (FString(ElementData)==FString(TEXT("true")));   \
+      return true;                                                               \
+   }
+
+#define READNODE_INT32(_container_, _name_)                  \
+   if (FString(ElementName) == FString(TEXT(#_name_)))       \
+   {                                                         \
+      _container_##->##_name_ = FCString::Atoi(ElementData); \
+      return true;                                           \
+   }
+
+#define READNODE_UINT32(_container_, _name_)                 \
+   if (FString(ElementName) == FString(TEXT(#_name_)))       \
+   {                                                         \
+      int tmp____ = FCString::Atoi(ElementData);             \
+      if(tmp____<0){UE_LOG(PretendEmpyers, Warning, TEXT("XmlUnitParser A negative integer (%d) is being converted to uint with Abs()."), tmp____);} \
+      _container_##->##_name_ = FMath::Abs(tmp____);         \
+      return true;                                           \
+   }
+#pragma endregion
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////                            START HERE                                                    /////////
+///////                                                                                          /////////
+///////           For changing how a race/bonus/class is serialized, such as                     /////////
+///////               adding/removing a stat, or changing the type of one                        /////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//==============================================================================================================
+// Race serialization (non-racial bonuses)
+//  This is called only after a new race has been created in currentRace, called once per non-bonus node under the race node
+//==============================================================================================================
+bool XmlUnitParser::ProcessElement_RaceStat(const TCHAR* ElementName, const TCHAR* ElementData, int32 XmlFileLineNumber)
+{
+   check(currentRace != nullptr);
+
+   READNODE_FSTRING(currentRace, noun);
+   READNODE_FSTRING(currentRace, plural);
+   READNODE_FSTRING(currentRace, adjective);
+   READNODE_FSTRING(currentRace, icon);
+   READNODE_FLOAT(currentRace, prevalence);
+
+   UE_LOG(PretendEmpyers, Log, TEXT("XmlUnitParser::ProcessElement_RaceStat %s is not a recognized element of a UnitRace (Line %d)\n"), ElementName, XmlFileLineNumber);
+   return false;
+}
+
+//==============================================================================================================
+// Racial bonus serialization
+//  This is called after a new racial bonus is allocated in currentBonus, called once per node under the bonus node
+//==============================================================================================================
+bool XmlUnitParser::ProcessElement_RaceBonus(const TCHAR* ElementName, const TCHAR* ElementData, int32 XmlFileLineNumber)
+{
+   check(currentRace != nullptr);
+   check(currentBonus != nullptr);
+
+   READNODE_FSTRING(currentBonus, classnoun);
+   READNODE_FSTRING(currentBonus, noun);
+   READNODE_FSTRING(currentBonus, plural);
+   READNODE_FLOAT(currentBonus, xpvalue);
+   READNODE_FLOAT(currentBonus, xpvalueperlevel);
+   READNODE_FLOAT(currentBonus, health);
+   READNODE_FLOAT(currentBonus, healthperlevel);
+   READNODE_FLOAT(currentBonus, damage);
+   READNODE_FLOAT(currentBonus, damageperlevel);
+   READNODE_FLOAT(currentBonus, recruittime);
+   READNODE_FLOAT(currentBonus, recruittime);
+   READNODE_FLOAT(currentBonus, upkeep);
+   READNODE_FLOAT(currentBonus, upkeepperlevel);
+   READNODE_FLOAT(currentBonus, arcane);
+   READNODE_FLOAT(currentBonus, arcaneperlevel);
+   READNODE_FLOAT(currentBonus, holy);
+   READNODE_FLOAT(currentBonus, holyperlevel);
+   READNODE_FLOAT(currentBonus, nature);
+   READNODE_FLOAT(currentBonus, natureperlevel);
+
+   UE_LOG(PretendEmpyers, Log, TEXT("XmlUnitParser::ProcessElement_RaceStat %s is not a recognized element of a UnitRace (Line %d)\n"), ElementName, XmlFileLineNumber);
+   return false;
+}
+
+//==============================================================================================================
+// Class serialization
+//  This is called after a new class is allocated in currentClass, called once per node under the class node
+//==============================================================================================================
+bool XmlUnitParser::ProcessElement_Class(const TCHAR* ElementName, const TCHAR* ElementData, int32 XmlFileLineNumber)
+{
+   check(currentClass != nullptr);
+
+   READNODE_FSTRING(currentClass, noun);
+   READNODE_FSTRING(currentClass, plural);
+   READNODE_FSTRING(currentClass, icon);
+   READNODE_BOOL(currentClass, ishero);
+   READNODE_UINT32(currentClass, rank);
+   READNODE_UINT32(currentClass, health);
+   READNODE_UINT32(currentClass, healthperlevel);
+   READNODE_UINT32(currentClass, damage);
+   READNODE_UINT32(currentClass, damageperlevel);
+   READNODE_UINT32(currentClass, recruittime);
+   READNODE_UINT32(currentClass, recruitcost);
+   READNODE_UINT32(currentClass, upkeep);
+   READNODE_UINT32(currentClass, upkeepperlevel);
+   READNODE_UINT32(currentClass, xpvalue);
+   READNODE_UINT32(currentClass, xpvalueperlevel);
+   READNODE_INT32(currentClass, arcane);
+   READNODE_INT32(currentClass, arcaneperlevel);
+   READNODE_INT32(currentClass, holy);
+   READNODE_INT32(currentClass, holyperlevel);
+   READNODE_INT32(currentClass, nature);
+   READNODE_INT32(currentClass, natureperlevel);
+
+   UE_LOG(PretendEmpyers, Log, TEXT("XmlUnitParser::ProcessElement_RaceStat %s is not a recognized element of a UnitRace (Line %d)\n"), ElementName, XmlFileLineNumber);
+   return false;
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////                            STOP HERE                                                     /////////
+///////                                                                                          /////////
+///////           The rest of the file is the implementation details of serialization            /////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#pragma region ImplementationDetails
+#undef READNODE_FSTRING
+#undef READNODE_FLOAT 
+#undef READNODE_BOOL
+#undef READNODE_INT32
+#undef READNODE_UINT32
+
+
+
+
+
 #pragma region IFastXmlCallback
 /**
 * Called after the XML's header is parsed.  This is usually the first call that you'll get back.
@@ -165,7 +318,7 @@ case ProcessingDepth::##_node_:                                                 
    depth = ProcessingDepth::##_parent_;                                                                                                               \
    result = true;                                                                                                                                     \
    break
-//      ^  missing semi-colan is intentional to force use of the macro to require it
+//      ^  missing semi-colon is intentional to force use of the macro to require it
 
 //Each PROCESS_DATA_CLOSURE wraps node closure where current depth has child-data nodes, but also may be the node itsef closing
 #define PROCESS_DATA_CLOSURE(_node_, _parent_, _validator_) \
@@ -268,126 +421,6 @@ bool XmlUnitParser::CreateNewRace()
 	return true;
 }
 
-#pragma region ReadNodeMacros
-#define READNODE_FSTRING(_container_, _name_)                   \
-   if (FString(ElementName) == FString(TEXT(#_name_)))          \
-   {                                                            \
-      _container_##->##_name_ = FString(ElementData);           \
-      return true;                                              \
-   }
-
-#define READNODE_FLOAT(_container_, _name_)                  \
-   if (FString(ElementName) == FString(TEXT(#_name_)))       \
-   {                                                         \
-      _container_##->##_name_ = FCString::Atof(ElementData); \
-      return true;                                           \
-   }
-
-#define READNODE_BOOL(_container_, _name_)                                       \
-   if (FString(ElementName) == FString(TEXT(#_name_)))                           \
-   {                                                                             \
-      if(FString(ElementData)!=FString(TEXT("true"))||FString(ElementData)!=FString(TEXT("false")))\
-      {                                                                          \
-         UE_LOG(PretendEmpyers, Warning, TEXT("XmlUnitParser A bool value is neither 'true' nor 'false'. Value:'%s'\n"), ElementData);\
-      }                                                                          \
-      _container_##->##_name_ = (FString(ElementData)==FString(TEXT("true")));   \
-      return true;                                                               \
-   }
-
-#define READNODE_INT32(_container_, _name_)                  \
-   if (FString(ElementName) == FString(TEXT(#_name_)))       \
-   {                                                         \
-      _container_##->##_name_ = FCString::Atoi(ElementData); \
-      return true;                                           \
-   }
-
-#define READNODE_UINT32(_container_, _name_)                 \
-   if (FString(ElementName) == FString(TEXT(#_name_)))       \
-   {                                                         \
-      int tmp____ = FCString::Atoi(ElementData);             \
-      if(tmp____<0){UE_LOG(PretendEmpyers, Warning, TEXT("XmlUnitParser A negative integer (%d) is being converted to uint with Abs()."), tmp____);} \
-      _container_##->##_name_ = FMath::Abs(tmp____);         \
-      return true;                                           \
-   }
-#pragma endregion
-
-//This is called only after a new race has been created in currentRace, called once per non-bonus node under the race node
-bool XmlUnitParser::ProcessElement_RaceStat(const TCHAR* ElementName, const TCHAR* ElementData, int32 XmlFileLineNumber)
-{
-	check(currentRace != nullptr);
-
-	READNODE_FSTRING(currentRace, noun);
-	READNODE_FSTRING(currentRace, plural);
-	READNODE_FSTRING(currentRace, adjective);
-	READNODE_FSTRING(currentRace, icon);
-	READNODE_FLOAT(currentRace, prevalence);
-
-	UE_LOG(PretendEmpyers, Log, TEXT("XmlUnitParser::ProcessElement_RaceStat %s is not a recognized element of a UnitRace (Line %d)\n"), ElementName, XmlFileLineNumber);
-	return false;
-}
-
-//This is called after a new racial bonus is allocated in currentBonus, called once per node under the bonus node
-bool XmlUnitParser::ProcessElement_RaceBonus(const TCHAR* ElementName, const TCHAR* ElementData, int32 XmlFileLineNumber)
-{
-	check(currentRace != nullptr);
-	check(currentBonus != nullptr);
-
-	READNODE_FSTRING(currentBonus, classnoun);
-	READNODE_FSTRING(currentBonus, noun);
-	READNODE_FSTRING(currentBonus, plural);
-   READNODE_FLOAT(currentBonus, xpvalue);
-   READNODE_FLOAT(currentBonus, xpvalueperlevel);
-	READNODE_FLOAT(currentBonus, health);
-	READNODE_FLOAT(currentBonus, healthperlevel);
-	READNODE_FLOAT(currentBonus, damage);
-	READNODE_FLOAT(currentBonus, damageperlevel);
-	READNODE_FLOAT(currentBonus, recruittime);
-	READNODE_FLOAT(currentBonus, recruittime);
-	READNODE_FLOAT(currentBonus, upkeep);
-	READNODE_FLOAT(currentBonus, upkeepperlevel);
-	READNODE_FLOAT(currentBonus, arcane);
-	READNODE_FLOAT(currentBonus, arcaneperlevel);
-	READNODE_FLOAT(currentBonus, holy);
-	READNODE_FLOAT(currentBonus, holyperlevel);
-	READNODE_FLOAT(currentBonus, nature);
-	READNODE_FLOAT(currentBonus, natureperlevel);
-
-	UE_LOG(PretendEmpyers, Log, TEXT("XmlUnitParser::ProcessElement_RaceStat %s is not a recognized element of a UnitRace (Line %d)\n"), ElementName, XmlFileLineNumber);
-	return false;
-}
-
-//This is called after a new class is allocated in currentClass, called once per node under the class node
-bool XmlUnitParser::ProcessElement_Class(const TCHAR* ElementName, const TCHAR* ElementData, int32 XmlFileLineNumber)
-{
-	check(currentClass != nullptr);
-
-	READNODE_FSTRING(currentClass, noun);
-	READNODE_FSTRING(currentClass, plural);
-	READNODE_FSTRING(currentClass, icon);
-	READNODE_BOOL(currentClass, canbehero);
-	READNODE_BOOL(currentClass, canberegular);
-	READNODE_UINT32(currentClass, rank);
-	READNODE_UINT32(currentClass, health);
-	READNODE_UINT32(currentClass, healthperlevel);
-	READNODE_UINT32(currentClass, damage);
-	READNODE_UINT32(currentClass, damageperlevel);
-	READNODE_UINT32(currentClass, recruittime);
-	READNODE_UINT32(currentClass, recruitcost);
-	READNODE_UINT32(currentClass, upkeep);
-	READNODE_UINT32(currentClass, upkeepperlevel);
-   READNODE_UINT32(currentClass, xpvalue);
-   READNODE_UINT32(currentClass, xpvalueperlevel);
-	READNODE_INT32(currentClass, arcane);
-   READNODE_INT32(currentClass, arcaneperlevel);
-   READNODE_INT32(currentClass, holy);
-   READNODE_INT32(currentClass, holyperlevel);
-   READNODE_INT32(currentClass, nature);
-   READNODE_INT32(currentClass, natureperlevel);
-
-	UE_LOG(PretendEmpyers, Log, TEXT("XmlUnitParser::ProcessElement_RaceStat %s is not a recognized element of a UnitRace (Line %d)\n"), ElementName, XmlFileLineNumber);
-	return false;
-}
-
 bool XmlUnitParser::ValidateCurrentRace()
 {
 	bool result = (currentRace != nullptr
@@ -463,7 +496,6 @@ bool XmlUnitParser::ValidateCurrentClass()
 		&& currentClass->noun != TEXT("")
 		&& currentClass->plural != TEXT("")
 		&& currentClass->icon != TEXT("")
-		&& (currentClass->canbehero || currentClass->canberegular)
 		&& currentClass->health > 0
 		&& currentClass->recruittime > 0
 		&& currentClass->rank <= Unit::RearmostRank
@@ -503,3 +535,4 @@ bool XmlUnitParser::ValidateCompletedUnitRoster()
 	return result;
 
 }
+#pragma endregion

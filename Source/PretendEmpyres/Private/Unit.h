@@ -43,8 +43,7 @@ public:
 		int32 holyperlevel;
 		int32 nature;
 		int32 natureperlevel;
-		bool canbehero;
-		bool canberegular;
+      bool ishero;
 	};
 
 	struct RacialBonus
@@ -110,8 +109,7 @@ private:
       int32 holyperlevel;
       int32 nature;
       int32 natureperlevel;
-      bool canbehero;
-      bool canberegular;
+      bool ishero;
 	};
 
 
