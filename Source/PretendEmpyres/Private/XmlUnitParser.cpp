@@ -1,6 +1,9 @@
 #include "PretendEmpyres.h"
+<<<<<<< HEAD
 #include "FastXml.h"
 #include "XmlParser.h"
+=======
+>>>>>>> origin/master
 #include "XmlUnitParser.h"
 
 //see https://answers.unrealengine.com/questions/1859/log-issue-again.html?sort=oldest for details on log category
