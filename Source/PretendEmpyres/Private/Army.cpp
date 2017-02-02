@@ -201,7 +201,7 @@ Unit* Army::AllocateUnit(UnitType _type, uint32 _quantity)
 {
 	//verify it doesn't already exist, allocate unit, add to army containers
 	check(GetUnitPointerByUnitType(_type) == nullptr);
-	Unit* unit = new Unit(_type, _quantity);
+	Unit* unit = Unit::AllocateNewUnit(_type, _quantity);
 	RegisterUnitWithArmy(unit);
 	return unit;
 }
