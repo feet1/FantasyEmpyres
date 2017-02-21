@@ -2,8 +2,13 @@
 
 // A UnitType is a special identifier that encodes the level, race, class and hero status of a unit into an integer
 // to simplify unit comparisons, among other things
-// We split the bits of UnitType into [Level][Race][Class][ishero]
+// We split the bits of UnitType into [reserved][Race][Class][ishero]
 typedef uint64 UnitType;
+
+// We split the bits of UnitType into [level][Race][Class][ishero]
+typedef uint64 UnitStackType;
+
+typedef uint32 UnitGUID;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 *    CLASS Unit
@@ -163,11 +168,12 @@ private:
    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 public:
    ~Unit();
+   UnitStackType GetUnitStackType() const;
    UnitType GetUnitType() const;
    bool IsHero() const;
    uint32 ModifyHealth(int32 amount);   //returns # units killed
-   void GrantExperience(uint32 _quantity);
-   int32 ModifyQuantity(int32 _quantity);
+   void GrantExperience(uint32 quantity);
+   int32 ModifyQuantity(int32 quantity, uint32 xpOfNewUnits = 0);
    uint32 Quantity() const;
    void GetMagicAccumulation(int32& outArcane, int32& outHoly, int32& outNature) const;
    uint32 GetAttackDamage() const;
@@ -176,9 +182,10 @@ public:
    //feeds the unit, returns remainder
    uint32 FeedUnit(uint32 foodstuffs);
    uint32 GetTotalHealth() const;
-   uint32 GetGuid() const;
+   UnitGUID GetGuid() const;
    uint32 GetXPValue(bool wholeStack) const;
    uint32 GetRank() const;
+   uint32 GetCurrentExperience() const;
 
 private:
    UnitType m_type;
@@ -187,7 +194,7 @@ private:
    uint32 m_health;
    uint32 m_experience;
    float m_hunger;
-   uint32 m_guid;
+   UnitGUID m_guid;
 
 private:
       Unit();              //private default CTOR, call AllocateNewUnit to make units
@@ -199,23 +206,23 @@ public:
    static const UnitType raceBits;
    static const UnitType classBits;
    static const UnitType heroBits;
-   static const UnitType levelBits;
+   static const UnitStackType levelBits;
    static const UnitType raceMask;
    static const UnitType classMask;
    static const UnitType heroMask;
-   static const UnitType fullClassMask;
-   static const UnitType levelMask;
+   static const UnitStackType levelMask;
    static const uint32 RearmostRank;
    static const uint32 HeroMaxLevel;
    static const uint32 RegularMaxLevel;
    static const uint32 ExperiencePerLevel;
+   static const uint32 NumberOfRegularsAHeroIsWorth;
    static const float UnitsLostToStarvationPercent;
    static const float FightingPenaltyWhileHungry;
    static const float HowMuchHarderYouGetHitWhileHungry;
 
    static const RaceAndClass& GetRaceAndClass(UnitType type);
    static void InitializeUnitDatabase();
-   static Unit* AllocateNewUnit(UnitType _type, uint32 _quantity = 1, uint32 _level = 0);
+   static Unit* AllocateNewUnit(UnitStackType type, uint32 quantity = 1, uint32 level = 0);
 
 private:
    static TMap<UnitType /* race bits of UnitType*/,Race*> RaceDatabase;

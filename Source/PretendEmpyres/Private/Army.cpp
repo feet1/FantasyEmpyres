@@ -7,35 +7,44 @@
 float Army::DamagePunchThroughThreshhold = 0.5f;
 float Army::MinimumDamagePunchedThrough = 0.2f;
 
-Army::Army(FString& _armyName, const int32 _identity)
+Army::Army()
 {
-	armyName = "Army"; //eventually build automatic army names based on an incrementing variable based on the team, i.e. "Selastria First Legion"
-
 }
 
 Army::~Army()
 {
-	for (auto const& unit : UnitsByGuid)
+	for (auto const& unit : m_unitsByGuid)
 	{
 		delete unit.Value;
 	}
-	UnitsByGuid.Empty();
-	UnitsByUnitType.Empty();
-	HerosByGuid.Empty();
-	RegularsByGuid.Empty();
-	UnitsByRankByGuid.Empty();
+	m_unitsByGuid.Empty();
+	m_unitsByUnitType.Empty();
+	m_herosByGuid.Empty();
+	m_regularsByGuid.Empty();
+	m_unitsByRankByGuid.Empty();
 }
 
 void Army::AddExperience(uint32 amount)
 {
-	for (const auto& unit : UnitsByGuid)
+   //calculate the weight of a single regular and hero unit in the army
+   uint32 armySize = m_herosByGuid.Num() * Unit::NumberOfRegularsAHeroIsWorth;
+   for (auto it = m_regularsByGuid.CreateIterator(); it; ++it)
+   {
+      armySize += it->Value->Quantity();
+   }
+   
+   uint32 xpPerRegular = FMath::Max(1u, (uint32)(((float)amount / armySize) + 0.5f));
+
+	for (const auto& pair : m_unitsByGuid)
 	{
-		uint32 grantedXP = amount / UnitsByGuid.Num();
-		unit.Value->GrantExperience(grantedXP);
+      Unit* unit = pair.Value;
+      //XP is divided per unit type. Large stacks of units get much less XP than small stacks?
+      uint32 grantedXP = (unit->IsHero()) ? xpPerRegular * Unit::NumberOfRegularsAHeroIsWorth : xpPerRegular * unit->Quantity();
+		unit->GrantExperience(grantedXP);
 	}
 }
 
-bool Army::BeginAttack(Army* defender) 
+bool Army::Attack(Army* defendingArmy)
 {
 	//returns true if this army won
 	uint32 damageToAttacker;
@@ -43,29 +52,15 @@ bool Army::BeginAttack(Army* defender)
 	uint32 XPAwardedToDefender;
 	bool defenderRemains = true;
 	bool AttackerRemains = true;
+
 	while (defenderRemains&&AttackerRemains)
 	{
-		defenderRemains = defender->GetDunked(damageToAttacker, XPAwardedToAttacker, SumDamage());
-		unawardedXP += XPAwardedToAttacker;
+		defenderRemains = defendingArmy->GetDunked(damageToAttacker, XPAwardedToAttacker, SumDamage());
+		m_unawardedXP += XPAwardedToAttacker;
 		AttackerRemains = DamageUnits(XPAwardedToDefender, damageToAttacker);
-		defender->unawardedXP += XPAwardedToDefender;
+      defendingArmy->m_unawardedXP += XPAwardedToDefender;
 	}
-	//if we ain't ded, give attackorz xp
 	return AttackerRemains;
-
-}
-
-void Army::AddRegulars(UnitType unitType, uint32 quantity)
-{
-	Unit* unit = GetUnitPointerByUnitType(unitType);
-	if (unit == nullptr)
-	{
-		AllocateUnit(unitType, quantity);
-	}
-	else
-	{
-		unit->ModifyQuantity(quantity);
-	}
 }
 
 bool Army::GetDunked(uint32& outDamageToAttacker, uint32& outXPForAttacker, uint32 damageToDefender)
@@ -78,9 +73,9 @@ bool Army::GetDunked(uint32& outDamageToAttacker, uint32& outXPForAttacker, uint
 bool Army::DamageUnits(uint32& outXP, uint32 damage) 
 {
 	outXP = 0;
-	while(UnitsByGuid.Num() > 0 && damage > 0)
+	while(m_unitsByGuid.Num() > 0 && damage > 0)
 	{
-		for (const auto& rank : UnitsByRankByGuid)
+		for (const auto& rank : m_unitsByRankByGuid)
 		{
 			uint32 unitsInThisRank = 0;
 			uint32 totalHealthOfUnitsInRank = 0;
@@ -108,7 +103,7 @@ bool Army::DamageUnits(uint32& outXP, uint32 damage)
 				}
 				if (damage == 0)
 				{
-					return UnitsByGuid.Num() != 0;
+					return m_unitsByGuid.Num() != 0;
 				}
 
 			}
@@ -132,141 +127,153 @@ bool Army::DamageUnits(uint32& outXP, uint32 damage)
 		}
 	}
 	//apply fancy damage formula
-	check(UnitsByGuid.Num() == 0)  //find out how the hell there are any units left
+	check(m_unitsByGuid.Num() == 0)  //find out how the hell there are any units left
 	return false;
 }
 
 uint32 Army::SumDamage()
 {
 	uint32 totalDamage = 0;
-	for (const auto& unit : UnitsByGuid)
+	for (const auto& unit : m_unitsByGuid)
 	{
 		totalDamage += unit.Value->GetAttackDamage();
 	}
 	return totalDamage;
 }
 
-void Army::DeleteUnit(uint32 guid)
-{
-	RemoveRegulars(guid, 0);
-}
-uint32 Army::RemoveRegulars(uint32 guid, uint32 quantity)
-{
-	Unit* unit = UnitsByGuid.FindChecked(guid);
-	uint32 qty = unit->Quantity();
-	if (quantity >= qty||quantity==0)
-	{
-		DeregisterUnitWithArmy(unit);
-		delete unit;
-		return qty;
-	}
-	else
-	{
-		int32 amountRemoved = -(unit->ModifyQuantity(-(int32)quantity));
-		check(amountRemoved > 0);
-		return (uint32)amountRemoved;
-	}
-
-}
-
 //will be called by GUI to move units between your armies
-void Army::TransferUnit(uint32 _guid, uint32 _quantity, Army* gainingArmy)
+void Army::TransferUnitOut(UnitGUID guid, uint32 quantity, Army* gainingArmy)
 {
-	if (true) //(destination=={0,0,0}, unit has not moved this turn)
-	{
-		Unit* unit = UnitsByGuid.FindChecked(_guid);
-		
-		if (unit->IsHero())
-		{
-			TransferHero(unit, gainingArmy);
-			return;
-		}
-		uint32 troopsSent = 0;
-		uint32 troopsRecieved = 0;
-		//xfer units by qty
-		UnitType unitType = unit->GetUnitType();
-		gainingArmy->AddRegulars(unitType, _quantity);
-		troopsSent = RemoveRegulars(_guid, _quantity);
-		check(troopsSent == troopsRecieved);
-	}
+   Unit* unit = m_unitsByGuid.FindChecked(guid);
+   check(unit != nullptr);
+
+   if (unit->IsHero())
+   {
+      DeregisterUnitWithArmy(unit);
+      gainingArmy->RegisterUnitWithArmy(unit);
+      return;
+   }
+
+   uint32 troopsMoved = RemoveUnits(&unit, quantity);
+   check(troopsMoved == quantity);
+   gainingArmy->AddUnits( unit->GetUnitStackType(), troopsMoved, unit->GetCurrentExperience() );
 }
 
-void Army::TransferHero(Unit* hero, Army* gainingArmy)
+
+void Army::AddUnits(UnitStackType stackType, uint32 quantity, uint32 xpOfNewUnits)
 {
-	DeregisterUnitWithArmy(hero);
-	gainingArmy->RegisterUnitWithArmy(hero);
+   check((stackType & Unit::heroMask) == 0);//heros can not be added like this
+   UnitType type = stackType & ~Unit::levelMask;
+
+   auto& unitList = m_unitsByUnitType.FindOrAdd(type);
+   Unit* receivingUnit = nullptr;
+   for (auto* unitNode = unitList.GetHead(); unitNode != nullptr; unitNode = unitNode->GetNextNode())
+   {
+      if (unitNode->GetValue()->GetUnitStackType() == stackType)
+      {
+         receivingUnit = unitNode->GetValue();
+         break;
+      }
+   }
+   if (receivingUnit == nullptr)
+   {
+      receivingUnit = AllocateAndRegisterUnit(stackType, 0);//no dudes yet
+   }
+   receivingUnit->ModifyQuantity(quantity, xpOfNewUnits);
 }
 
-Unit* Army::AllocateUnit(UnitType _type, uint32 _quantity)
+
+uint32 Army::RemoveUnits(Unit** ppUnit, uint32 quantity)
+{
+   Unit* unit = *ppUnit;
+   int32 netChange = unit->ModifyQuantity(-(int32)quantity);
+   check(netChange == -(int32)quantity);
+
+   if (unit->Quantity() == 0)
+   {
+      DeleteAndDeregisterUnit(ppUnit);
+   }
+
+   return netChange;
+}
+
+Unit* Army::AllocateAndRegisterUnit(UnitStackType stackType, uint32 quantity)
 {
 	//verify it doesn't already exist, allocate unit, add to army containers
-	check(GetUnitPointerByUnitType(_type) == nullptr);
-	Unit* unit = Unit::AllocateNewUnit(_type, _quantity);
+	check(GetUnit(stackType) == nullptr);
+	Unit* unit = Unit::AllocateNewUnit(stackType, quantity);
 	RegisterUnitWithArmy(unit);
 	return unit;
 }
 
-
-Unit* Army::GetUnitPointerByUnitType(UnitType type)
+void Army::DeleteAndDeregisterUnit(Unit** ppUnit)
 {
-	TDoubleLinkedList<Unit*>** listpp = UnitsByUnitType.Find(type);
-	check(listpp != nullptr);
-	TDoubleLinkedList<Unit*>* list = *listpp;
-	TDoubleLinkedList<Unit*>::TDoubleLinkedListNode* node = list->GetHead();
-	while (node != nullptr)
-	{
-		Unit* unitPtr = node->GetValue();
-		if (unitPtr->GetUnitType() == type)
-		{
-			return node->GetValue();
-		}
-		node = node->GetNextNode();
-	}
-	return nullptr;
+   DeregisterUnitWithArmy(*ppUnit);
+   delete *ppUnit;
+   (*ppUnit) = nullptr;
+}
+
+Unit* Army::GetUnit(UnitGUID guid)
+{
+   return m_unitsByGuid.FindChecked(guid);
 }
 
 void Army::RegisterUnitWithArmy(Unit* unit)
 {
-	UnitsByGuid.Add(unit->GetGuid(), unit);
-	UnitsByUnitType.FindChecked(unit->GetUnitType())->AddHead(unit);
-	if (unit->IsHero())
+   if (unit == nullptr || m_unitsByGuid.Contains(unit->GetGuid()))
+   {
+      check(false, TEXT("Army::RegisterUnitWithArmy was passed a null unit or one that was already registered! (address: %x)\n"), reinterpret_cast<uint32>(unit));
+      return;
+   }
+
+   uint32 guid = unit->GetGuid();
+   UnitType type = unit->GetUnitType();
+   uint32 rank = unit->GetRank();
+
+	m_unitsByGuid.Add(guid, unit);
+   m_unitsByUnitType.FindOrAdd(type).AddHead(unit);
+   m_unitsByRankByGuid.Find(rank)->Add(guid, unit);
+
+   if (unit->IsHero())
 	{
-		HerosByGuid.Add(unit->GetGuid(), unit);
+		m_herosByGuid.Add(guid, unit);
 	}
 	else
 	{
-		RegularsByGuid.Add(unit->GetGuid(), unit);
+		m_regularsByGuid.Add(guid, unit);
 	}
-	UnitsByRankByGuid.Find(unit->GetRank())->Add(unit->GetGuid(), unit);
 }
+
 void Army::DeregisterUnitWithArmy(Unit* unit)
 {
-	//remove from UnitsByGuid
-	UnitsByGuid.Remove(unit->GetGuid());
-	//remove from UnitsByUnitType
-	TDoubleLinkedList<Unit*>** listpp = UnitsByUnitType.Find(unit->GetUnitType());
-	check(listpp != nullptr);
-	TDoubleLinkedList<Unit*>* list = *listpp;
-	check(list != nullptr);
-	if (list != nullptr)
-	{
-		TDoubleLinkedList<Unit*>::TDoubleLinkedListNode* node = list->FindNode(unit);
-		check(node != nullptr);
-		if (node != nullptr)
-		{
-			list->RemoveNode(node);
-		}
-	}
-	//remove from UnitsByRankByGuid
-	TMap<uint32, Unit*>* map = UnitsByRankByGuid.Find(unit->GetRank());
-	check(map != nullptr);
-	if (map != nullptr)
-	{
-		uint32 count = map->Remove(unit->GetGuid());
-		check(count != 0);
-	}
+   if (unit == nullptr && !m_unitsByGuid.Contains(unit->GetGuid()) )
+   {
+      checkf(false, TEXT("Army::DeregisterUnitWithArmy is a private function so calling it with an invalid unit means the management of this pointer is somehow broken"));
+      return;
+   }
 
-	//remove from either HerosByGuid or RegularsByGuid
-	TMap<uint32, Unit*> &HerosOrRegularsByGuid = (unit->IsHero()) ? HerosByGuid : RegularsByGuid;
-	HerosOrRegularsByGuid.Remove(unit->GetGuid());
+   uint32 guid = unit->GetGuid();
+   UnitType type = unit->GetUnitType();
+   uint32 rank = unit->GetRank();
+
+   // UnitsByGuid
+	auto entriesRemoved = m_unitsByGuid.Remove(guid);
+   check(entriesRemoved == 1);
+
+   //UnitsByUnitType
+   auto& unitList = m_unitsByUnitType.FindChecked(type);
+   auto* pNode = unitList.FindNode(unit);
+   check(pNode != nullptr);
+   if (pNode != nullptr)
+   {
+      unitList.RemoveNode(pNode);
+   }
+
+	//UnitsByRankByGuid
+	entriesRemoved = m_unitsByRankByGuid.FindChecked(unit->GetRank()).Remove(unit->GetGuid());
+	check(entriesRemoved == 1);
+
+	//HerosByGuid or RegularsByGuid
+   entriesRemoved = unit->IsHero() ? m_herosByGuid.Remove(guid) : m_regularsByGuid.Remove(guid);
+   check(entriesRemoved == 1);
 }

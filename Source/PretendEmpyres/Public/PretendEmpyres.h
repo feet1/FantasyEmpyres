@@ -9,4 +9,4 @@ static const FString unserializedString = FString("default");
 static const float  unserializedFloat = NAN;
 static const uint32  unserializedUint32 = UINT_MAX;
 static const int32  unserializedInt32 = INT_MIN;
-
+static const int32 SidesOnAHex = 6;

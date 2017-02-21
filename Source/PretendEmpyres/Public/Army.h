@@ -10,41 +10,38 @@ class HexCoordinate {};
 class PRETENDEMPYRES_API Army
 {
 public:
-	Army(FString& _armyName, const int32 _identity);
-	~Army();
-	void AddExperience(uint32 amount);
-	bool BeginAttack(Army* opponent);
-	void AddRegulars(UnitType unitType, uint32 quantity);
-
-protected:
-	
-	bool GetDunked(uint32& outDamage, uint32& outExperience, uint32 damage);
-
-
-private:
-	TMap<uint32, Unit*> UnitsByGuid;
-	TMap<UnitType, TDoubleLinkedList<Unit*>* > UnitsByUnitType;
-	TMap<uint32, Unit*> HerosByGuid;
-	TMap<uint32, Unit*> RegularsByGuid;
-	TMap<uint32 /*rank*/, TMap<uint32, Unit*>> UnitsByRankByGuid;
-	Unit* Leader;
-	HexCoordinate location;
-	HexCoordinate destination;
-	FString Name;
-	uint32 Player_ID;
-	uint32 unawardedXP;
-	FString armyName;
-	bool DamageUnits(uint32& outXP, uint32 damage);
-	uint32 SumDamage();
-	void DeleteUnit(uint32 guid);
-	uint32 RemoveRegulars(uint32 guid, uint32 quantity);
-	void TransferUnit(uint32 _guid, uint32 _quantity, Army* gainingArmy);
-	void TransferHero(Unit* hero, Army* gainingArmy);
-	Unit* AllocateUnit(UnitType _type, uint32 _quantity);
-	Unit* GetUnitPointerByUnitType(UnitType type);
-	void RegisterUnitWithArmy(Unit* unit);
-	void DeregisterUnitWithArmy(Unit* unit);
-public:
 	static float DamagePunchThroughThreshhold;
 	static float MinimumDamagePunchedThrough;
+
+public:
+	Army();
+	~Army();
+
+	void AddExperience(uint32 amount);
+	bool Attack(Army* defendingArmy);
+
+private:
+	
+	bool GetDunked(uint32& outDamage, uint32& outExperience, uint32 damage);
+	bool DamageUnits(uint32& outXP, uint32 damage);
+	uint32 SumDamage();
+   Unit* GetUnit(UnitGUID guid);
+   void RegisterUnitWithArmy(Unit* unit);
+	void DeregisterUnitWithArmy(Unit* unit);
+
+private: // Internal calls for this army only
+	void TransferUnitOut(UnitGUID guid, uint32 quantity, Army* gainingArmy);
+	void AddUnits(UnitStackType unitType, uint32 quantity, uint32 xpOfNewUnits);
+   uint32 RemoveUnits(Unit** ppUnit, uint32 quantity);
+   Unit* AllocateAndRegisterUnit(UnitStackType type, uint32 quantity);
+   void DeleteAndDeregisterUnit(Unit** ppUnit);
+
+private:
+	TMap<UnitGUID, Unit*> m_unitsByGuid;
+	TMap<UnitType, TDoubleLinkedList<Unit*>> m_unitsByUnitType;
+	TMap<uint32 /*rank*/, TMap<UnitGUID, Unit*>> m_unitsByRankByGuid;
+	TMap<UnitGUID, Unit*> m_herosByGuid;
+	TMap<UnitGUID, Unit*> m_regularsByGuid;
+	Unit* m_leadUnit;
+	uint32 m_unawardedXP;
 };

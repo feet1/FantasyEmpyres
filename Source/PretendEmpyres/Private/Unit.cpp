@@ -19,18 +19,18 @@ const UnitType allBitsSet = 0xFFFFFFFFFFFFFFFF;// just used to instantiate the m
 const UnitType bitsInByte = 8;//just need to multiply by sizeof() to get bit counts
 const UnitType Unit::raceBits = 24;
 const UnitType Unit::heroBits = 1;
-const UnitType Unit::levelBits = 5;
-const UnitType Unit::classBits = sizeof(UnitType) * bitsInByte - Unit::levelBits - Unit::raceBits - Unit::heroBits; //class gets all remaining bits
-const UnitType Unit::Unit::raceMask = (allBitsSet << (sizeof(UnitType) * bitsInByte - Unit::raceBits)) >> Unit::levelBits;
-const UnitType Unit::classMask = (allBitsSet << (sizeof(UnitType) * bitsInByte - Unit::classBits)) >> (Unit::levelBits + Unit::raceBits);
-const UnitType Unit::heroMask = allBitsSet >> (sizeof(UnitType) * bitsInByte - Unit::heroBits);
-const UnitType Unit::levelMask = allBitsSet << (sizeof(UnitType) * bitsInByte - Unit::levelBits);
-const UnitType Unit::fullClassMask = Unit::classMask | Unit::heroMask;
+const UnitStackType Unit::levelBits = 5;
+const UnitType Unit::classBits = sizeof(UnitStackType) * bitsInByte - Unit::levelBits - Unit::raceBits - Unit::heroBits; //class gets all remaining bits
+const UnitType Unit::Unit::raceMask = (allBitsSet << (sizeof(UnitStackType) * bitsInByte - Unit::raceBits)) >> Unit::levelBits;
+const UnitType Unit::classMask = (allBitsSet << (sizeof(UnitStackType) * bitsInByte - Unit::classBits)) >> (Unit::levelBits + Unit::raceBits);
+const UnitType Unit::heroMask = allBitsSet >> (sizeof(UnitStackType) * bitsInByte - Unit::heroBits);
+const UnitStackType Unit::levelMask = allBitsSet << (sizeof(UnitStackType) * bitsInByte - Unit::levelBits);
 
 const uint32 Unit::RearmostRank = 4;
 const uint32 Unit::HeroMaxLevel = 30;
 const uint32 Unit::RegularMaxLevel = 4;
 const uint32 Unit::ExperiencePerLevel = 1000;
+const uint32 Unit::NumberOfRegularsAHeroIsWorth = 50;
 const float Unit::UnitsLostToStarvationPercent = 0.5f;
 const float Unit::FightingPenaltyWhileHungry = 0.5f;
 const float Unit::HowMuchHarderYouGetHitWhileHungry = 0.1f;
@@ -39,22 +39,22 @@ const float Unit::HowMuchHarderYouGetHitWhileHungry = 0.1f;
 //some functionality really only needed within this CPP so it's hidden in an anonymous namespace
 namespace /* ANONYMOUS */
 {
-   uint32 GetNewGuid()
+   UnitGUID GetNewGuid()
    {
-      static uint32 nextGuid = 0;
+      static UnitGUID nextGuid = 0;
       return ++nextGuid;
    }
-   UnitType GetNewRaceID()
+   UnitStackType GetNewRaceID()
    {
-      static UnitType nextId = 0;
-      static UnitType maxRaceId = Unit::raceMask >> (Unit::classBits + Unit::heroBits);
+      static UnitStackType nextId = 0;
+      static UnitStackType maxRaceId = Unit::raceMask >> (Unit::classBits + Unit::heroBits);
       checkf(nextId < maxRaceId, TEXT("FATAL: Too many races were serialized to fit in %u bits, max value %u\n"), Unit::raceBits, maxRaceId);
       return ++nextId << (Unit::classBits + Unit::heroBits);
    }
-   UnitType GetNewClassID()
+   UnitStackType GetNewClassID()
    {
-      static UnitType nextId = 1;
-      static UnitType maxClassId = Unit::classMask >> Unit::heroBits;
+      static UnitStackType nextId = 1;
+      static UnitStackType maxClassId = Unit::classMask >> Unit::heroBits;
       checkf(nextId < maxClassId, TEXT("FATAL: Too many classes were serialized to fit in %u bits, max value %u\n"), Unit::classBits, maxClassId);
       return ++nextId << Unit::heroBits;
    }
@@ -64,9 +64,9 @@ namespace /* ANONYMOUS */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 *    Static Containers (Unit Databases)
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-TMap<UnitType /* race bits of UnitType*/, Unit::Race*> Unit::RaceDatabase;
-TMap<UnitType /* class bits of UnitType*/, Unit::Class*> Unit::ClassDatabase;
-TMap<UnitType, Unit::RaceAndClass> Unit::_______RaceAndClassCache_______;
+TMap<UnitStackType /* race bits of UnitType*/, Unit::Race*> Unit::RaceDatabase;
+TMap<UnitStackType /* class bits of UnitType*/, Unit::Class*> Unit::ClassDatabase;
+TMap<UnitStackType, Unit::RaceAndClass> Unit::_______RaceAndClassCache_______;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 *    Default constructor, which is private (not callable directly).
@@ -85,15 +85,27 @@ Unit::~Unit()
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-*    Retrieves the UnitType as it will be used by entities external to the Unit. The level is encoded into
-*        this value to allow such operations as comparing two units for their ability to be stacked.
+*    Retrieves the UnitType as it will be used by entities external to the Unit. The level is NOT in
+*        this value to allow such operations as determining variety (dwarven fighter)
 *
 *     return:     returns the full unit type, including the level bits
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-UnitType Unit::GetUnitType() const
+UnitStackType Unit::GetUnitStackType() const
 {
    checkf((m_type & levelMask) == 0, TEXT("GetUnitType found an issue with Unit::type: The level should not be stored in type."));
-   return (m_type & ~levelMask) | (((UnitType)m_level) << (classBits + raceBits + heroBits));
+   return (m_type & ~levelMask) | (((UnitStackType)m_level) << (classBits + raceBits + heroBits));
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+*    Retrieves the UnitStackType as it will be used by entities external to the Unit. The level is encoded into
+*        this value to allow such operations as comparing two units stacking (level 2 dwarven fighter vs level 3 dwarven fighter?)
+*
+*     return:     returns the full unit type, including the level bits
+* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+UnitStackType Unit::GetUnitType() const
+{
+   checkf((m_type & levelMask) == 0, TEXT("GetUnitType found an issue with Unit::type: The level should not be stored in type."));
+   return (m_type & ~levelMask);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -103,7 +115,7 @@ UnitType Unit::GetUnitType() const
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 bool Unit::IsHero() const
 {
-   return (levelMask & m_type) != 0;
+   return (heroMask & m_type) != 0;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -175,12 +187,15 @@ uint32 Unit::ModifyHealth(int32 amount)
 void Unit::GrantExperience(uint32 amount)
 {
    uint32 maxLevel = (m_type & heroMask) != 0 ? HeroMaxLevel : RegularMaxLevel;
-   m_experience += amount;
+
+   m_experience += FMath::Max(1u, (uint32)(((float)amount / m_quantity) + 0.5f));
+
    while(m_experience >= ExperiencePerLevel && m_level < maxLevel)
    {
       ++m_level;
       m_experience -= ExperiencePerLevel;
    }
+
    if (m_level == maxLevel)
    {
       m_experience = 0;
@@ -194,12 +209,22 @@ void Unit::GrantExperience(uint32 amount)
 *
 *     return:     The net change to the stack (how many units were actually added or subtracted)
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-int32 Unit::ModifyQuantity(int32 quantity)
+int32 Unit::ModifyQuantity(int32 quantity, uint32 xpOfNewUnits)
 {
    int32 originalCount = (int32)m_quantity;
    checkf(quantity >= 0 || originalCount >= FMath::Abs(quantity), TEXT("Unit::AddQuantity() was called with a negative value (%d) in excess of stack size (%u)\n"), quantity, m_quantity);
    
-   if (quantity < 0 && originalCount <= FMath::Abs(quantity))
+   if (quantity > 0)
+   {
+      //When adding new units to the stack, we take a weighted average of the experience of each group
+      //to figure out how much XP the new stack should have in the most balanced way possible
+      uint32 oldUnitCount = m_quantity;
+      m_quantity += (uint32)quantity;
+      float oldUnitRatio = oldUnitCount / m_quantity;
+      float newUnitRatio = 1 - oldUnitRatio;
+      m_experience = m_experience * oldUnitRatio + xpOfNewUnits * newUnitRatio;
+   }
+   else if (originalCount <= FMath::Abs(quantity))
    {
       m_quantity = 0;
       //Unit has died!
@@ -209,8 +234,8 @@ int32 Unit::ModifyQuantity(int32 quantity)
    else
    {
       m_quantity = (uint32)(originalCount + quantity);
-      return quantity;
    }
+   return quantity;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -346,7 +371,7 @@ uint32 Unit::GetTotalHealth() const
 *
 *     return:     The guid of this unit
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-uint32 Unit::GetGuid() const
+UnitGUID Unit::GetGuid() const
 {
    return m_guid;
 }
@@ -373,6 +398,16 @@ uint32 Unit::GetRank() const
 {
    const RaceAndClass& rac = GetRaceAndClass(m_type);
    return rac.rank;
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+*    Retrieves the current amount of experience the unit has
+*
+*     return:     The Experience total for the units
+* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+uint32 Unit::GetCurrentExperience() const
+{
+   return m_experience;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -411,7 +446,7 @@ const Unit::RaceAndClass& Unit::GetRaceAndClass(UnitType type)
    if (cachedValuep == nullptr)
    {
       Race* racep = RaceDatabase.FindChecked(type & raceMask);
-      Class* classp = ClassDatabase.FindChecked(type & fullClassMask);
+      Class* classp = ClassDatabase.FindChecked(type & (heroMask | classMask));
       //lookup for specific racial version of this class
       //if the class is not found, use generic racial bonus "any"
       Modifier** bonuspp = racep->modifiers.Find(classp->noun);
@@ -506,7 +541,7 @@ void Unit::InitializeUnitDatabase()
 *   quantity:    The number of UnitType dudes this unit stack should represent. Hero's must pass 1, regulars must pass  >= 1
 *      level:    This set the level of the new unit. If 0, the new unit's level will be extracted from unitType.
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-Unit* Unit::AllocateNewUnit(UnitType type, uint32 quantity, uint32 level)
+Unit* Unit::AllocateNewUnit(UnitStackType type, uint32 quantity, uint32 level)
 {
    //if level is not provided, extract level from the unit type
    if (level == 0)
@@ -521,8 +556,8 @@ Unit* Unit::AllocateNewUnit(UnitType type, uint32 quantity, uint32 level)
    type &= ~levelMask;
    uint32 allowedQuantity = (type & heroMask) != 0 ? 1 : quantity;
    check(allowedQuantity == quantity);
-
-   const RaceAndClass& rac = GetRaceAndClass(type);
+   UnitStackType stackType = type & ~levelMask;
+   const RaceAndClass& rac = GetRaceAndClass(stackType);
 
    Unit* unit = new Unit();
    unit->m_type = type;
