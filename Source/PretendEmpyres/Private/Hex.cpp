@@ -14,7 +14,7 @@
 //     -S                  ___     ___     ___                 +Q NorthEast
 //          .          ___/@ 4\___/0 3\___/2 2\___          .
 //              .     /# 4\_@_/! 3\_#_/1 2\_$_/3 1\     .
-//                  . \_!_/@ 3\_@_/0 2\_#_/2 1\_$_/ .                                                     
+//                  . \_!_/@ 3\_@_/0 2\_#_/2 1\_$_/ .
 //                    /#.3\_!_/! 2\_@_/1 1\_#_/3.0\
 //                    \_0_/@.2\_!_/0 1\_@_/2.0\_#_/  
 //                    /# 2\_0_/!.1\_!_/1.0\_@_/3 !\
@@ -70,7 +70,7 @@ Hexagon::Hexagon(const Hexagon& other)
 
 }
 
-Hexagon::Hexagon(const HexagonFraction& other)
+Hexagon::Hexagon(const HexagonF& other)
    : q((int32)other.q), r((int32)other.r), s((int32)other.s), w((int32)other.w), neighbors(this)
 {
 
@@ -390,7 +390,7 @@ float HexagonF::Magnatude() const
    return mag;
 }
 
-int Hexagon::DistanceTo(const Hexagon& rhs) const
+int HexagonF::DistanceTo(const HexagonF& rhs) const
 {
    checkf(w == 1.f && rhs.w == 1.f, TEXT("Hexagon::DistanceTo doesn't make sense with vectors (w=0). Did you mean to use points (w=1)?"));
    int distance = (FMath::Abs(rhs.q - q) + FMath::Abs(rhs.r - r) + FMath::Abs(rhs.s - s)) / 2.f;

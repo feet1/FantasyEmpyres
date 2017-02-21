@@ -11,7 +11,7 @@ enum class HexDirectionIndex : int32
    NorthWest = 5
 };
 
-class HexagonFraction;
+class HexagonF;
 class Hexagon
 {
 public:
@@ -30,7 +30,7 @@ public:
    Hexagon();
    Hexagon(int Q, int R, int S, int W=0);
    Hexagon(const Hexagon& other);
-   explicit Hexagon(const HexagonFraction& other);
+   explicit Hexagon(const HexagonF& other);
 
    //Equality
    bool operator==(const Hexagon& rhs) const;

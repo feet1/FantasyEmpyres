@@ -79,7 +79,7 @@ bool Army::DamageUnits(uint32& outXP, uint32 damage)
 		{
 			uint32 unitsInThisRank = 0;
 			uint32 totalHealthOfUnitsInRank = 0;
-			for (const auto& unit : rank.Value)
+			for (const auto& unit : *(rank.Value))
 			{
 				unitsInThisRank += unit.Value->Quantity();
 				totalHealthOfUnitsInRank += unit.Value->GetTotalHealth();
@@ -90,14 +90,14 @@ bool Army::DamageUnits(uint32& outXP, uint32 damage)
 				uint32 nonPunchthroughDamage = FMath::Min(totalHealthOfUnitsInRank, (uint32)(damage * (1 - MinimumDamagePunchedThrough)));
 				check(nonPunchthroughDamage <= damage);
 				damage -= nonPunchthroughDamage;
-				for (const auto& unit : rank.Value)
+				for (const auto& unit : *(rank.Value))
 				{
 					float portionOfThisRank = unit.Value->Quantity() / (float)unitsInThisRank;
 					int32 damageToThisUnit = portionOfThisRank * nonPunchthroughDamage;
 					uint32 unitsKilled = unit.Value->ModifyHealth(-damageToThisUnit);
 					if (unit.Value->Quantity() == 0)
 					{
-						DeleteUnit(unit.Value->GetGuid());
+						DeleteAndDeregisterUnit(unit.Value);
 					}
 					outXP += unit.Value->GetXPValue(false) * unitsKilled;
 				}
@@ -110,7 +110,7 @@ bool Army::DamageUnits(uint32& outXP, uint32 damage)
 			//only fires if rank has x2 health as dmg & soaks remainder of damage and returns false
 			else
 			{
-				for (const auto& unit : rank.Value)
+				for (const auto& unit : *(rank.Value))
 				{
 					float portionOfThisRank = unit.Value->Quantity() / (float)unitsInThisRank;
 					int32 damageToThisUnit = portionOfThisRank * damage;
@@ -118,7 +118,7 @@ bool Army::DamageUnits(uint32& outXP, uint32 damage)
 					outXP += unit.Value->GetXPValue(false) * unitsKilled;
 					if (unit.Value->Quantity() == 0)
 					{
-						DeleteUnit(unit.Value->GetGuid());
+						DeleteAndDeregisterUnit(unit.Value);
 					}
 				}
 				return false;
@@ -153,10 +153,11 @@ void Army::TransferUnitOut(UnitGUID guid, uint32 quantity, Army* gainingArmy)
       gainingArmy->RegisterUnitWithArmy(unit);
       return;
    }
-
-   uint32 troopsMoved = RemoveUnits(&unit, quantity);
+   UnitStackType ust = unit->GetUnitStackType();
+   uint32 xp = unit->GetCurrentExperience();
+   uint32 troopsMoved = RemoveUnits(unit, quantity);
    check(troopsMoved == quantity);
-   gainingArmy->AddUnits( unit->GetUnitStackType(), troopsMoved, unit->GetCurrentExperience() );
+   gainingArmy->AddUnits( ust, troopsMoved, xp );
 }
 
 
@@ -165,9 +166,13 @@ void Army::AddUnits(UnitStackType stackType, uint32 quantity, uint32 xpOfNewUnit
    check((stackType & Unit::heroMask) == 0);//heros can not be added like this
    UnitType type = stackType & ~Unit::levelMask;
 
-   auto& unitList = m_unitsByUnitType.FindOrAdd(type);
+   ListOfUnits*& unitList = m_unitsByUnitType.FindOrAdd(type);
+   if (unitList == nullptr)
+   {
+	   unitList = new TDoubleLinkedList<Unit*>();
+   }
    Unit* receivingUnit = nullptr;
-   for (auto* unitNode = unitList.GetHead(); unitNode != nullptr; unitNode = unitNode->GetNextNode())
+   for (auto* unitNode = unitList->GetHead(); unitNode != nullptr; unitNode = unitNode->GetNextNode())
    {
       if (unitNode->GetValue()->GetUnitStackType() == stackType)
       {
@@ -183,15 +188,14 @@ void Army::AddUnits(UnitStackType stackType, uint32 quantity, uint32 xpOfNewUnit
 }
 
 
-uint32 Army::RemoveUnits(Unit** ppUnit, uint32 quantity)
+uint32 Army::RemoveUnits(Unit* pUnit, uint32 quantity)
 {
-   Unit* unit = *ppUnit;
-   int32 netChange = unit->ModifyQuantity(-(int32)quantity);
+   int32 netChange = pUnit->ModifyQuantity(-(int32)quantity);
    check(netChange == -(int32)quantity);
 
-   if (unit->Quantity() == 0)
+   if (pUnit->Quantity() == 0)
    {
-      DeleteAndDeregisterUnit(ppUnit);
+      DeleteAndDeregisterUnit(pUnit);
    }
 
    return netChange;
@@ -206,11 +210,10 @@ Unit* Army::AllocateAndRegisterUnit(UnitStackType stackType, uint32 quantity)
 	return unit;
 }
 
-void Army::DeleteAndDeregisterUnit(Unit** ppUnit)
+void Army::DeleteAndDeregisterUnit(Unit* pUnit)
 {
-   DeregisterUnitWithArmy(*ppUnit);
-   delete *ppUnit;
-   (*ppUnit) = nullptr;
+   DeregisterUnitWithArmy(pUnit);
+   delete pUnit;
 }
 
 Unit* Army::GetUnit(UnitGUID guid)
@@ -222,7 +225,7 @@ void Army::RegisterUnitWithArmy(Unit* unit)
 {
    if (unit == nullptr || m_unitsByGuid.Contains(unit->GetGuid()))
    {
-      check(false, TEXT("Army::RegisterUnitWithArmy was passed a null unit or one that was already registered! (address: %x)\n"), reinterpret_cast<uint32>(unit));
+      checkf(false, TEXT("Army::RegisterUnitWithArmy was passed a null unit or one that was already registered! (address: %x)\n"), reinterpret_cast<uint64>(unit));
       return;
    }
 
@@ -231,8 +234,19 @@ void Army::RegisterUnitWithArmy(Unit* unit)
    uint32 rank = unit->GetRank();
 
 	m_unitsByGuid.Add(guid, unit);
-   m_unitsByUnitType.FindOrAdd(type).AddHead(unit);
-   m_unitsByRankByGuid.Find(rank)->Add(guid, unit);
+	ListOfUnits*& unitList = m_unitsByUnitType.FindOrAdd(type);
+	if (unitList == nullptr)
+	{
+		unitList = new TDoubleLinkedList<Unit*>();
+	}
+	unitList->AddHead(unit);
+
+	MapOfUnitGUIDs*& guidList = m_unitsByRankByGuid.FindOrAdd(rank);
+	if (guidList == nullptr)
+	{
+		guidList = new TMap<UnitGUID, Unit*>();
+	}
+	guidList->Add(guid, unit);
 
    if (unit->IsHero())
 	{
@@ -257,20 +271,20 @@ void Army::DeregisterUnitWithArmy(Unit* unit)
    uint32 rank = unit->GetRank();
 
    // UnitsByGuid
-	auto entriesRemoved = m_unitsByGuid.Remove(guid);
+   auto entriesRemoved = m_unitsByGuid.Remove(guid);
    check(entriesRemoved == 1);
 
    //UnitsByUnitType
-   auto& unitList = m_unitsByUnitType.FindChecked(type);
-   auto* pNode = unitList.FindNode(unit);
+   ListOfUnits* unitList = m_unitsByUnitType.FindChecked(type);
+   auto* pNode = unitList->FindNode(unit);
    check(pNode != nullptr);
    if (pNode != nullptr)
    {
-      unitList.RemoveNode(pNode);
+      unitList->RemoveNode(pNode);
    }
 
 	//UnitsByRankByGuid
-	entriesRemoved = m_unitsByRankByGuid.FindChecked(unit->GetRank()).Remove(unit->GetGuid());
+	entriesRemoved = m_unitsByRankByGuid.FindChecked(unit->GetRank())->Remove(unit->GetGuid());
 	check(entriesRemoved == 1);
 
 	//HerosByGuid or RegularsByGuid

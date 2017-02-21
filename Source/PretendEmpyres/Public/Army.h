@@ -32,16 +32,20 @@ private:
 private: // Internal calls for this army only
 	void TransferUnitOut(UnitGUID guid, uint32 quantity, Army* gainingArmy);
 	void AddUnits(UnitStackType unitType, uint32 quantity, uint32 xpOfNewUnits);
-   uint32 RemoveUnits(Unit** ppUnit, uint32 quantity);
+   uint32 RemoveUnits(Unit* pUnit, uint32 quantity);
    Unit* AllocateAndRegisterUnit(UnitStackType type, uint32 quantity);
-   void DeleteAndDeregisterUnit(Unit** ppUnit);
+   void DeleteAndDeregisterUnit(Unit* pUnit);
 
 private:
+	typedef TDoubleLinkedList<Unit*> ListOfUnits;
+	typedef TMap<UnitGUID, Unit*> MapOfUnitGUIDs;
 	TMap<UnitGUID, Unit*> m_unitsByGuid;
-	TMap<UnitType, TDoubleLinkedList<Unit*>> m_unitsByUnitType;
-	TMap<uint32 /*rank*/, TMap<UnitGUID, Unit*>> m_unitsByRankByGuid;
+	TMap<UnitType, ListOfUnits* > m_unitsByUnitType;
+	TMap<uint32 /*rank*/, MapOfUnitGUIDs* > m_unitsByRankByGuid;
 	TMap<UnitGUID, Unit*> m_herosByGuid;
 	TMap<UnitGUID, Unit*> m_regularsByGuid;
 	Unit* m_leadUnit;
 	uint32 m_unawardedXP;
+
+	Army(const Army&);
 };
