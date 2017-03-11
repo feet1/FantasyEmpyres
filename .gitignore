@@ -30,6 +30,8 @@ Binaries/
 Build/
 DerivedDataCache/
 Saved/
+Content/StarterContent/
+*.uproject
 
 # =========================
 # Operating System Files

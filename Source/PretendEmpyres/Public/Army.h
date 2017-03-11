@@ -3,6 +3,7 @@
 #pragma once
 
 class HexCoordinate {};
+#include "Unit.h"
 
 /**
  * 
